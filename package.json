@@ -1,0 +1,24 @@
+{
+  "name": "kuji-server",
+  "version": "1.0.0",
+  "description": "> Kuji App의 백엔드 서버입니다.   > Kotlin + Spring Boot 3.x 기반으로 REST API를 제공하며,   > PostgreSQL을 사용한 데이터 저장 및 JWT 기반 인증 구조를 목표로 하고 있습니다.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kajang93/kuji-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kajang93/kuji-server/issues"
+  },
+  "homepage": "https://github.com/kajang93/kuji-server#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
