@@ -1,22 +1,22 @@
 # 🧱 Kuji Server
 
-> Kuji App의 백엔드 서버입니다.  
-> Kotlin + Spring Boot 3.x 기반으로 REST API를 제공하며,  
-> PostgreSQL을 사용한 데이터 저장 및 JWT 기반 인증 구조를 목표로 하고 있습니다.
+> **Kuji App**의 비즈니스 로직과 데이터 관리를 담당하는 백엔드 서버입니다.  
+> 모바일 하이브리드 배포(Capacitor)와 실제 상용화(PG 결제, 스토어 심사)를 고려하여, 
+> 경량화, 유지보수성, 타입 안정성을 최우선으로 설계되었습니다.
 
 ---
 
-## 📌 기술 스택
+## 📌 기술 스택 (Tech Stack)
 
-| 항목 | 기술 |
-|------|------|
-| **언어** | Java 21 |
-| **프레임워크** | Spring Boot 3.5.x |
-| **빌드도구** | Gradle (Groovy DSL) |
-| **DB** | PostgreSQL (v14+) |
-| **ORM** | Spring Data JPA + Hibernate |
-| **인증** | JWT (Spring Security는 추후 도입 예정) |
-| **배포** | Railway (CI/CD 자동 배포) |
+| 구분 | 기술 | 상세 내용 |
+| :--- | :--- | :--- |
+| **Language** | **Java 21** | Virtual Thread 및 Record 등 최신 문법 활용 |
+| **Framework** | **Spring Boot 3.5.x** | 최신 스프링 생태계 및 성능 최적화 |
+| **ORM / DB** | **Spring Data JPA / PostgreSQL 14+** | 객체 지향 데이터 관리 및 JSONB/ENUM 지원 |
+| **Query** | **Querydsl** | 동적 쿼리 처리 및 컴파일 타임 타입 안정성 확보 |
+| **Mapping** | **MapStruct** | 고성능 객체 매핑 (Entity ↔ DTO) |
+| **Auth** | **Spring Security + JWT** | 소셜 로그인(OAuth 2.0) 및 Stateless 인증 구조 |
+| **CI/CD** | **Railway** | 빠르고 간편한 클라우드 배포 환경 |
 
 ---
 
@@ -24,119 +24,81 @@
 
 ![Architecture Flow](./docs/images/architecture_flow.png)
 
+---
 
-
-## 📂 프로젝트 구조
+## 📂 프로젝트 구조 (Project Structure)
 
 ```bash
 kuji-server/
-├─ build.gradle          # Gradle 빌드 스크립트
-├─ settings.gradle       # Gradle 설정
-├─ index.js              # (테스트용) Node.js/Express 서버
-│
-├─ docs/                 # 문서 및 이미지
-│  └─ images/            # 아키텍처 흐름도 등 보관
-│
+├─ build.gradle          # Gradle 빌드 및 의존성 관리 (Querydsl, MapStruct)
+├─ settings.gradle       
+├─ docs/                 # 문서 및 이미지 보관
 └─ src/
    ├─ main/
    │  ├─ java/com/kuji/backend/
-   │  │  ├─ config/              # 환경 및 CORS 설정
-   │  │  ├─ controller/          # REST API Controller
-   │  │  ├─ service/             # 비즈니스 로직 처리 (예정)
-   │  │  ├─ repository/          # JPA Repository 인터페이스 (예정)
-   │  │  └─ domain/              # DB Entity 클래스 (예정)
-   │  │
+   │  │  ├─ global/      # 공통 설정 (Security, Exception, BaseEntity)
+   │  │  └─ domain/      # 도메인별 패키지 (member, kuji, payment, support)
    │  └─ resources/
-   │     └─ application.yml      # 환경 설정 (DB, 포트 등)
-   │
-   └─ test/
-      └─ java/com/kuji/backend/  # 단위 테스트 코드
+   │     └─ application.yml # 환경 설정 (DB, Port, ddl-auto)
+   └─ test/              # 단위 및 통합 테스트 코드
 ```
 
+---
 
+## 🗄️ 데이터베이스 설계 (ERD)
 
+총 **13개의 테이블**로 구성되어 있으며, 주요 관계는 다음과 같습니다.
+
+* **회원 도메인:** `member` ↔ `business_info` (1:1 식별 관계, OAuth 정보 포함)
+* **쿠지 도메인:** `kujiboard` ↔ `kujiitem` (1:N 관계, 다중 이미지 지원)
+* **결제 도메인:** `payment` ➡️ `pointhistory` ➡️ `drawhistory` (결제 및 적립 흐름)
 
 ---
 
-## 🧠 개발 단계별 진행 (1단계 → 3단계 전략)
+## 💰 운영 및 배포 전략 (Operations & Deployment)
 
-| 단계 | 내용 | 상태 |
-|------|------|------|
-| 1️⃣ | Spring Boot 프로젝트 초기 세팅 & 외부 IP 개방 | ✅ 완료 |
-| 2️⃣ | PostgreSQL 연결 및 환경 설정 (dev/prod) | ✅ 완료 |
-| 3️⃣ | `/hello` API 테스트 및 기초 정적 리소스 정리 | ✅ 완료 |
-| 4️⃣ | **(1단계: 개발용)** JPA Entity 모델링 및 `ddl-auto: update` 자동화 | ⏳ 예정 |
-| 5️⃣ | **(2단계: 정착용)** 핵심 비즈니스 로직(쿠지 구매/조회) 개발 | ⏳ 예정 |
-| 6️⃣ | **(3단계: 운영용)** Flyway 도입 및 `ddl-auto: none` 전환 (DB 버전 관리) | ⏳ 예정 |
-| 7️⃣ | JWT 기반 인증 고도화 및 Railway 배포 자동화 | ⏳ 예정 |
+### 1. 하이브리드 앱 배포 (Capacitor)
+기존 크롬앱(PWA/웹) 기반의 코드를 모바일 네이티브 앱으로 확장합니다.
+* **접근법:** 웹 코드(HTML/JS)를 유지하며 `Capacitor`를 통해 네이티브 기능(카메라, 결제 브릿지) 연동.
+* **출시 전략:** 안드로이드(Play Store) 우선 심사 진행 후, 네이티브 기능 보강하여 iOS(App Store) 출시.
 
----
-### ⚙️ 실행 방법
+### 2. 마켓 심사 및 규정 준수 (Compliance)
+* **확률형 아이템 공시:** 모든 쿠지 판 및 등급별 당첨 확률을 앱 내에 상시 투명하게 노출 (스토어 필수 규정).
+* **카테고리 최적화:** '게임' 카테고리를 피하고 **'쇼핑'** 또는 **'엔터테인먼트'** 카테고리로 등록.
+* **환불 정책:** 랜덤 상품 특성에 따른 명확한 약관 명시 및 사전 고지.
 
-### 🔧 로컬 환경 실행
-
-```bash
-# 서버 실행
-./gradlew bootRun
-```
-
-- 기본 포트: [http://localhost:8080](http://localhost:8080)
-- 개발 환경: `application.yml → spring.profiles.active=dev`
-- DB 연결 확인: `jdbc:postgresql://localhost:5432/kuji`
+### 3. 예상 고정 지출 (Estimated Costs)
+| 항목 | 예상 비용 | 주기 | 비고 |
+| :--- | :--- | :--- | :--- |
+| **Apple Developer** | 129,000원 | 매년 | iOS 배포 유지 필수 |
+| **Google Developer** | 약 30,000원 ($25) | 최초 1회 | 안드로이드 배포 |
+| **PG사 가입비** | 220,000원 | 최초 1회 | 프로모션 활용 시 면제 가능 |
+| **보증보험/통신판매업**| 약 5~10만 원 | 매년 | 결제 연동 및 전자상거래 필수 |
+| **도메인 / 서버** | 약 3~5만 원 | 매월 | 초기 트래픽 기준 유지비 |
 
 ---
 
-### 📦 빌드
+## 📈 단계별 개발 로드맵 (Milestones)
 
-```bash
-./gradlew build
-```
+### ✅ Phase 1: 인프라 기반 구축 (완료)
+- [x] DB 설계 및 PostgreSQL 13개 테이블 수동 생성 완료
+- [x] Spring Boot 프로젝트 초기화 및 DB 연결 (`ddl-auto: validate`)
+- [x] 소셜 로그인(OAuth) 대응을 위한 `member` 테이블 확장 (`social_type`, `social_id`)
 
-- 빌드 결과물: `build/libs/kuji-server.jar`
+### ⏳ Phase 2: 코어 비즈니스 개발 (진행 중)
+- [ ] **환경 세팅:** Querydsl 및 MapStruct 설정 (build.gradle)
+- [ ] **엔티티 모델링:** `BaseTimeEntity`를 활용한 도메인 엔티티(Entity) 및 매핑 연동
+- [ ] **핵심 로직:** 회원가입, 쿠지 상품 등록/조회, 포인트 결제 API 및 재고 차감 로직 구현
 
----
-
-### ☁️ 배포 환경 (Railway)
-
-| 항목 | 내용 |
-|------|------|
-| **플랫폼** | [Railway](https://railway.app) |
-| **실행 방식** | Dockerfile 또는 Jar 직접 실행 |
-| **DB** | Railway PostgreSQL |
-| **로그 확인** | Railway Dashboard → Logs 탭 |
+### 🚀 Phase 3: 고도화 및 프로덕션 배포
+- [ ] **보안 및 예외:** Spring Security + JWT 적용 및 전역 예외 처리(`@RestControllerAdvice`)
+- [ ] **결제 연동:** PG사 연동 모듈 통합 및 실결제 테스트
+- [ ] **배포 자동화:** Railway CI/CD 파이프라인 구축 및 DB 마이그레이션(Flyway) 도입
 
 ---
 
-### 🔐 JWT 인증 (예정)
+## 🧑‍💻 개발자 (Developer)
 
-| 항목 | 설명 |
-|------|------|
-| **Access Token** | 로그인 시 발급 |
-| **Refresh Token** | 만료 시 재발급용 |
-| **Storage** | HTTP Header: `Authorization: Bearer <token>` |
-
----
-
-### 📡 API 샘플 (예정)
-
-| 메서드 | 엔드포인트 | 설명 |
-|---------|-------------|------|
-| `GET` | `/api/hello` | 서버 연결 테스트 |
-| `GET` | `/api/animes` | 애니메이션 리스트 조회 |
-| `GET` | `/api/kuji/{animeId}` | 해당 애니메이션의 쿠지 리스트 |
-| `POST` | `/api/purchase` | 쿠지 구매 요청 |
-| `POST` | `/api/auth/login` | 로그인 (JWT 발급) |
-
----
-
-### 🧑‍💻 개발자
-
-**KyungAh Jang**  
-Full Stack Developer (Kotlin / React)  
-📧 Email: [stars_ka@naver.com](mailto:stars_ka@naver.com)  
-🐙 GitHub: [https://github.com/kajang93](https://github.com/kajang93)
-
----
-
-> 💬 *이 백엔드 서버는 Kuji App의 데이터 및 비즈니스 로직을 담당하며,  
-> 클라이언트와 REST API로 통신합니다.*
+**KyungAh Jang** Full Stack Developer
+* 📧 Email: stars_ka@naver.com
+* 🐙 GitHub: https://github.com/kajang93
