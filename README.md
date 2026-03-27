@@ -33,6 +33,7 @@ kuji-server/
 ├─ build.gradle          # Gradle 빌드 및 의존성 관리 (Querydsl, MapStruct)
 ├─ settings.gradle       
 ├─ docs/                 # 문서 및 이미지 보관
+│  └─ images/            # 아키텍처 흐름도 등 보관
 └─ src/
    ├─ main/
    │  ├─ java/com/kuji/backend/
