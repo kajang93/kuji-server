@@ -96,6 +96,11 @@ public class Member extends BaseTimeEntity {
         this.point = 0; // 가입 시 포인트는 무조건 0
     }
 
+    // 💡 mappedBy를 통해 연관관계의 주인이 BusinessInfo임을 명시
+    // cascade = CascadeType.ALL: 회원이 삭제되면 사업자 정보도 같이 삭제
+    @OneToOne(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private BusinessInfo businessInfo;
+
     public void addPoint(int amount) {
         this.point += amount;
     }
@@ -105,5 +110,10 @@ public class Member extends BaseTimeEntity {
             throw new IllegalArgumentException("포인트가 부족합니다.");
         }
         this.point -= amount;
+    }
+
+    // 💡 사업자 정보를 등록하는 연관관계 편의 메서드
+    public void registerBusinessInfo(BusinessInfo businessInfo) {
+        this.businessInfo = businessInfo;
     }
 }
