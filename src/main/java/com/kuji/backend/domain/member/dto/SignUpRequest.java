@@ -17,13 +17,13 @@ public record SignUpRequest(
         Boolean isPrivacyAgreed,
         Boolean isMarketingAgreed) {
     // 💡 실무 팁: Service 계층을 깔끔하게 유지하기 위해 DTO -> Entity 변환 메서드를 DTO 안에 둡니다.
-    public Member toEntity(SocialType socialType, String socialId) {
+    public Member toEntity(SocialType socialType, String socialId, String encodedPassword) {
         return Member.builder()
-                .role(RoleType.USER) // 가입 시 기본 권한은 일반 유저(USER)
+                .role(RoleType.USER)
                 .socialType(socialType)
                 .socialId(socialId)
                 .email(this.email)
-                .password(this.password)
+                .password(encodedPassword) // 💡 날것 대신 암호화된 비밀번호가 들어갑니다!
                 .nickname(this.nickname)
                 .birthDate(this.birthDate)
                 .isTermsAgreed(this.isTermsAgreed)

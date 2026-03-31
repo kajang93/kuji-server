@@ -47,11 +47,19 @@ dependencies {
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
     annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0' // 롬복 충돌 방지
 
-    // === 4. 테스트 및 보안 (기존 유지) ===
-    // implementation 'org.springframework.boot:spring-boot-starter-security' (보안은 4단계에서 주석 풀게요!)
+    // === 4. 테스트 및 보안 ===
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    // testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // 💡 스프링 시큐리티 (비밀번호 암호화 및 보안 담당)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // 💡 JWT 토큰을 만들고 해석하는 최신 라이브러리 (jjwt)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 }
 // --- Querydsl Q-Class 생성 설정 (build.gradle 맨 밑바닥에 추가!) ---
 def querydslDir = "$buildDir/generated/querydsl"

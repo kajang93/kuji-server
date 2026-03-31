@@ -1,5 +1,6 @@
 package com.kuji.backend.domain.member.service;
 
+import com.kuji.backend.domain.member.dto.LoginRequest;
 import com.kuji.backend.domain.member.dto.SignUpRequest;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.enums.SocialType;
@@ -7,6 +8,8 @@ import com.kuji.backend.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import com.kuji.backend.global.jwt.JwtUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -14,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
     private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
 
     /**
      * 회원 가입 (일반 이메일 및 소셜 통합)
@@ -34,12 +39,28 @@ public class MemberService {
             }
         }
 
-        // 3. DTO -> Entity 변환
-        Member newMember = request.toEntity(socialType, socialId);
+        // 💡 비밀번호가 있으면 암호화, 소셜 가입이라 없으면 null 처리
+        String encodedPassword = (request.password() != null)
+                ? passwordEncoder.encode(request.password())
+                : null;
 
-        // 4. DB에 저장
-        Member savedMember = memberRepository.save(newMember);
+        // 💡 암호화된 비밀번호를 넘겨줍니다.
+        Member newMember = request.toEntity(socialType, socialId, encodedPassword);
+        return memberRepository.save(newMember).getId();
+    }
 
-        return savedMember.getId();
+    /**
+     * 회원 로그인
+     */
+    public String login(LoginRequest request) {
+        Member member = memberRepository.findByEmail(request.email())
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+
+        if (member.getPassword() == null || !passwordEncoder.matches(request.password(), member.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+
+        // 검증 통과! 이제 ID 대신 영롱한 JWT 토큰을 발급해서 줍니다!
+        return jwtUtil.createToken(member.getId(), member.getEmail());
     }
 }

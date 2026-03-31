@@ -1,5 +1,6 @@
 package com.kuji.backend.domain.member.controller;
 
+import com.kuji.backend.domain.member.dto.LoginRequest;
 import com.kuji.backend.domain.member.dto.SignUpRequest;
 import com.kuji.backend.domain.member.enums.SocialType;
 import com.kuji.backend.domain.member.service.MemberService;
@@ -27,4 +28,16 @@ public class MemberController {
         // 3. 요리가 다 되면 생성된 회원번호(ID)를 손님(프론트엔드)에게 전달! 200 OK!
         return ResponseEntity.ok(memberId);
     }
-}   
+
+    /**
+     * 일반(LOCAL) 회원 로그인 API
+     */
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody LoginRequest request) {
+        // Service에서 검증을 마치고 온 JWT 토큰을 받습니다.
+        String token = memberService.login(request);
+
+        // 200 OK와 함께 토큰 반환!
+        return ResponseEntity.ok(token);
+    }
+}
