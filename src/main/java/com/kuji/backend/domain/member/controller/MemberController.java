@@ -7,6 +7,9 @@ import com.kuji.backend.domain.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+
+import com.kuji.backend.domain.member.dto.MemberProfileResponse;
 
 @RestController // 💡 "나는 화면(HTML) 말고 데이터(JSON)만 반환하는 전용 웨이터야!" 라는 뜻
 @RequestMapping("/api/members") // 💡 식당 주소: "/api/members" 로 들어오는 손님은 내가 다 받겠다!
@@ -40,4 +43,20 @@ public class MemberController {
         // 200 OK와 함께 토큰 반환!
         return ResponseEntity.ok(token);
     }
+
+    /**
+     * 내 정보 조회 API (토큰 필수!)
+     */
+    @GetMapping("/me")
+    public ResponseEntity<MemberProfileResponse> getMyProfile(Authentication authentication) {
+
+        // 💡 어제 만든 검문소(Filter)가 토큰을 검사하고, 진짜 주인이면 여기에 이메일을 쏙 넣어줍니다!
+        String email = authentication.getName();
+
+        // 주방장(Service)에게 이메일 넘겨주고 정보 받아오기
+        MemberProfileResponse profile = memberService.getMyProfile(email);
+
+        return ResponseEntity.ok(profile);
+    }
+
 }

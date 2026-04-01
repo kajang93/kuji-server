@@ -1,6 +1,7 @@
 package com.kuji.backend.domain.member.service;
 
 import com.kuji.backend.domain.member.dto.LoginRequest;
+import com.kuji.backend.domain.member.dto.MemberProfileResponse;
 import com.kuji.backend.domain.member.dto.SignUpRequest;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.enums.SocialType;
@@ -62,5 +63,17 @@ public class MemberService {
 
         // 검증 통과! 이제 ID 대신 영롱한 JWT 토큰을 발급해서 줍니다!
         return jwtUtil.createToken(member.getId(), member.getEmail());
+    }
+
+    /**
+     * 내 프로필 정보 조회
+     */
+    public MemberProfileResponse getMyProfile(String email) {
+        // 1. 이메일로 DB에서 회원 찾기
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        // 2. 찾은 Entity를 예쁜 DTO 상자에 담아서 반환
+        return MemberProfileResponse.from(member);
     }
 }

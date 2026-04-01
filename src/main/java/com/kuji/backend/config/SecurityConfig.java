@@ -1,35 +1,43 @@
 package com.kuji.backend.config;
 
+import com.kuji.backend.global.jwt.JwtAuthenticationFilter;
+import com.kuji.backend.global.jwt.JwtUtil;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableWebSecurity // 💡 "이제부터 보안 규칙은 내가 관리한다!"
+@EnableWebSecurity
+@RequiredArgsConstructor // 💡 JwtUtil을 주입받기 위해 추가!
 public class SecurityConfig {
 
-    // 💡 BCrypt 암호화 기계를 프로젝트 전역에서 쓸 수 있게 Bean으로 등록합니다.
+    private final JwtUtil jwtUtil; // 💡 토큰 기계 가져오기!
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // 💡 식당 입구(URL) 출입 규칙 설정
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // API 서버라서 CSRF 방어는 일단 끕니다. (프론트랑 통신할 때 필수)
-                .formLogin(form -> form.disable()) // 스프링이 기본 제공하는 못생긴 로그인 화면 안 씁니다.
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
+                // 💡 세션 사용 안 함! (JWT 토큰만 믿고 갈 거니까요)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 회원가입과 로그인은 아무나 들어올 수 있게 허용(permitAll)!
                         .requestMatchers("/api/members/signup", "/api/members/login").permitAll()
-                        // 그 외의 주소는 전부 보안 카드(토큰) 검사할 거야!
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
+                // 💡 찐막 하이라이트: 스프링의 기본 로그인 필터 앞에, 우리가 만든 JWT 검문소를 딱! 세워둡니다.
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

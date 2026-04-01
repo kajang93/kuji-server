@@ -35,4 +35,32 @@ public class JwtUtil {
                 .signWith(secretKey) // 우리 식당 비밀 도장 쾅!
                 .compact(); // 텍스트로 압축!
     }
+
+    /**
+     * 💡 "이 토큰 가짜 아니야?" 검사하는 메서드
+     */
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        } catch (Exception e) {
+            // 토큰이 위조되었거나 만료되었을 때!
+            return false;
+        }
+    }
+
+    /**
+     * 💡 "이 토큰 주인(이메일)이 누구지?" 알아내는 메서드
+     */
+    public String getEmail(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
 }
