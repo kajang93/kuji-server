@@ -46,10 +46,16 @@ public class JwtUtil {
                     .build()
                     .parseSignedClaims(token);
             return true;
-        } catch (Exception e) {
-            // 토큰이 위조되었거나 만료되었을 때!
-            return false;
+        } catch (io.jsonwebtoken.security.SecurityException | io.jsonwebtoken.MalformedJwtException e) {
+            System.out.println("❌ 잘못된 JWT 서명입니다.");
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            System.out.println("❌ 만료된 JWT 토큰입니다.");
+        } catch (io.jsonwebtoken.UnsupportedJwtException e) {
+            System.out.println("❌ 지원되지 않는 JWT 토큰입니다.");
+        } catch (IllegalArgumentException e) {
+            System.out.println("❌ JWT 토큰이 비어있거나 잘못되었습니다.");
         }
+        return false;
     }
 
     /**

@@ -6,7 +6,8 @@ import com.kuji.backend.domain.member.entity.Member;
 public record BusinessRegistrationRequest(
         String companyName,
         String businessNumber,
-        String representativeName) {
+        String representativeName,
+        String licenseImageUrl) {
     // 💡 DTO를 Entity로 바꿔주는 마법! (이때 주인인 Member를 같이 엮어줍니다)
     public BusinessInfo toEntity(Member member) {
         return BusinessInfo.builder()
@@ -14,6 +15,7 @@ public record BusinessRegistrationRequest(
                 .companyName(this.companyName)
                 .businessNumber(this.businessNumber)
                 .ceoName(this.representativeName)
+                .licenseImageUrl(this.licenseImageUrl)
                 .build();
     }
 }

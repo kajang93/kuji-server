@@ -3,6 +3,8 @@ package com.kuji.backend.domain.member.entity;
 import com.kuji.backend.domain.member.enums.BusinessStatus;
 import com.kuji.backend.global.entity.BaseTimeEntity;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,7 +40,8 @@ public class BusinessInfo extends BaseTimeEntity {
     private String licenseImageUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(nullable = false, columnDefinition = "biz_status")
     private BusinessStatus status;
 
     @Column(name = "reject_reason", length = 255)

@@ -52,6 +52,7 @@ public class MemberController {
 
         // 💡 어제 만든 검문소(Filter)가 토큰을 검사하고, 진짜 주인이면 여기에 이메일을 쏙 넣어줍니다!
         String email = authentication.getName();
+        System.out.println("[MemberController] 내 정보 조회 요청 - 사용자: " + email);
 
         // 주방장(Service)에게 이메일 넘겨주고 정보 받아오기
         MemberProfileResponse profile = memberService.getMyProfile(email);
