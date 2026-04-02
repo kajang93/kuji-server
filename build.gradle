@@ -9,7 +9,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -61,12 +61,8 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 }
-// --- Querydsl Q-Class 생성 설정 (build.gradle 맨 밑바닥에 추가!) ---
+// --- Querydsl Q-Class 생성 설정 ---
 def querydslDir = "$buildDir/generated/querydsl"
-
-sourceSets {
-    main.java.srcDirs += [ querydslDir ]
-}
 
 tasks.withType(JavaCompile) {
     options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
