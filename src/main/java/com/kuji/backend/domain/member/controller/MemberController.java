@@ -45,6 +45,17 @@ public class MemberController {
     }
 
     /**
+     * 카카오(KAKAO) 로그인 API
+     */
+    @PostMapping("/login/kakao")
+    public ResponseEntity<com.kuji.backend.domain.member.dto.LoginResponse> kakaoLogin(@RequestBody com.kuji.backend.domain.member.dto.KakaoLoginRequest request) {
+        // 프론트에서 준 카카오 액세스 토큰 및 동의 항목으로 우리 서버용 JWT 토큰 발급!
+        com.kuji.backend.domain.member.dto.LoginResponse response = memberService.loginByKakao(request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 내 정보 조회 API (토큰 필수!)
      */
     @GetMapping("/me")

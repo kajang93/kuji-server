@@ -49,7 +49,7 @@ public class Member extends BaseTimeEntity {
     private String socialId;
 
     // --- 기본 회원 정보 ---
-    @Column(nullable = false, length = 100)
+    @Column(length = 100) // 💡 이메일은 이제 필수가 아닙니다! (nullable = true)
     private String email;
 
     @Column(length = 255) // 소셜 로그인은 비밀번호가 없을 수 있으므로 nullable

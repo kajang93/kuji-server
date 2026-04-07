@@ -20,6 +20,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
 
     /**
      * 회원 가입 (일반 이메일 및 소셜 통합)
@@ -27,13 +28,12 @@ public class MemberService {
     @Transactional
     public Long signUp(SignUpRequest request, SocialType socialType, String socialId) {
 
-        // 1. 이메일 중복 체크 (개발자님이 만든 findByEmail 활용!)
-        // isPresent()를 쓰면 값이 존재할 때(즉, 이미 가입된 이메일일 때) true를 반환합니다.
+        // 1. 이메일 중복 체크
         if (memberRepository.findByEmail(request.email()).isPresent()) {
             throw new IllegalArgumentException("이미 가입된 이메일입니다.");
         }
 
-        // 2. 소셜 로그인 중복 체크 (선택 사항이지만 안전을 위해 추가)
+        // 2. 소셜 로그인 중복 체크
         if (socialType != SocialType.LOCAL && socialId != null) {
             if (memberRepository.findBySocialTypeAndSocialId(socialType, socialId).isPresent()) {
                 throw new IllegalArgumentException("이미 연동된 소셜 계정입니다.");
@@ -46,8 +46,75 @@ public class MemberService {
                 : null;
 
         // 💡 암호화된 비밀번호를 넘겨줍니다.
-        Member newMember = request.toEntity(socialType, socialId, encodedPassword);
-        return memberRepository.save(newMember).getId();
+        Member newMember = java.util.Objects.requireNonNull(request.toEntity(socialType, socialId, encodedPassword));
+        Member savedMember = memberRepository.save(newMember);
+        return java.util.Objects.requireNonNull(savedMember).getId();
+    }
+
+    /**
+     * 카카오 로그인 (신규 가입 시 약관 동의 절차 포함)
+     */
+    @Transactional
+    public com.kuji.backend.domain.member.dto.LoginResponse loginByKakao(com.kuji.backend.domain.member.dto.KakaoLoginRequest request) {
+        // 1. 카카오 서버에서 사용자 정보 가져오기
+        var userInfo = kakaoClient.getKakaoUserInfo(request.getKakaoAccessToken());
+        String socialId = String.valueOf(userInfo.getId());
+        String email = userInfo.getEmail();
+        String nickname = userInfo.getNickname();
+        String profileImageUrl = userInfo.getProfileImageUrl();
+
+        System.out.println("🔔 [Kakao-Login] 카카오 사용자 정보 수신 - ID: " + socialId + ", 이메일: " + email);
+
+        // 2. 기존 가입자인지 확인
+        return memberRepository.findBySocialTypeAndSocialId(SocialType.KAKAO, socialId)
+                .map(member -> {
+                    System.out.println("🔔 [Kakao-Login] 기존 회원 로그인 - ID: " + member.getId());
+                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail());
+                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                            .token(jwtToken)
+                            .isNewUser(false)
+                            .build();
+                })
+                .orElseGet(() -> {
+                    // 3. 신규 회원일 경우 -> 약관 동의 체크 여부 확인 (방법 B 전략)
+                    if (request.getIsTermsAgreed() == null || !request.getIsTermsAgreed()) {
+                        System.out.println("🔔 [Kakao-Login] 신규 회원 - 약관 동의 필요");
+                        return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                                .token(null)
+                                .isNewUser(true)
+                                .email(email)
+                                .nickname(nickname)
+                                .profileImageUrl(profileImageUrl)
+                                .build();
+                    }
+
+                    // 4. 약관 동의가 확인되면 회원 가입 진행
+                    System.out.println("🔔 [Kakao-Login] 신규 회원 - 회원가입 완료");
+
+                    if (email != null && !email.isEmpty() && memberRepository.findByEmail(email).isPresent()) {
+                        throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
+                    }
+
+                    Member newMember = Member.builder()
+                            .role(com.kuji.backend.domain.member.enums.RoleType.USER)
+                            .socialType(SocialType.KAKAO)
+                            .socialId(socialId)
+                            .email(email)
+                            .nickname(nickname)
+                            .profileImageUrl(profileImageUrl)
+                            .isTermsAgreed(request.getIsTermsAgreed())
+                            .isPrivacyAgreed(request.getIsPrivacyAgreed())
+                            .isMarketingAgreed(request.getIsMarketingAgreed() != null ? request.getIsMarketingAgreed() : false)
+                            .build();
+
+                    Member savedMember = memberRepository.save(newMember);
+                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail());
+
+                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                            .token(jwtToken)
+                            .isNewUser(true)
+                            .build();
+                });
     }
 
     /**
