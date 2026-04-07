@@ -55,7 +55,8 @@ public class MemberService {
      * 카카오 로그인 (신규 가입 시 약관 동의 절차 포함)
      */
     @Transactional
-    public com.kuji.backend.domain.member.dto.LoginResponse loginByKakao(com.kuji.backend.domain.member.dto.KakaoLoginRequest request) {
+    public com.kuji.backend.domain.member.dto.LoginResponse loginByKakao(
+            com.kuji.backend.domain.member.dto.KakaoLoginRequest request) {
         // 1. 카카오 서버에서 사용자 정보 가져오기
         var userInfo = kakaoClient.getKakaoUserInfo(request.getKakaoAccessToken());
         String socialId = String.valueOf(userInfo.getId());
@@ -104,7 +105,8 @@ public class MemberService {
                             .profileImageUrl(profileImageUrl)
                             .isTermsAgreed(request.getIsTermsAgreed())
                             .isPrivacyAgreed(request.getIsPrivacyAgreed())
-                            .isMarketingAgreed(request.getIsMarketingAgreed() != null ? request.getIsMarketingAgreed() : false)
+                            .isMarketingAgreed(
+                                    request.getIsMarketingAgreed() != null ? request.getIsMarketingAgreed() : false)
                             .build();
 
                     Member savedMember = memberRepository.save(newMember);
