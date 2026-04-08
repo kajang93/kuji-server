@@ -28,12 +28,12 @@ public class JwtUtil {
      */
     public String createToken(Long memberId, String email) {
         return Jwts.builder()
-                .subject(email) // 토큰의 주인 (이메일)
-                .claim("memberId", memberId) // 토큰 안에 회원 번호도 슬쩍 넣어줍니다.
-                .issuedAt(new Date()) // 발급 시간
-                .expiration(new Date(System.currentTimeMillis() + expirationTime)) // 만료 시간
-                .signWith(secretKey) // 우리 식당 비밀 도장 쾅!
-                .compact(); // 텍스트로 압축!
+                .subject(String.valueOf(memberId)) // 토큰의 주인 (회원 번호로 식별!)
+                .claim("email", email) // 이메일은 필요한 경우를 위해 클레임에 따로 넣어줍니다.
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expirationTime))
+                .signWith(secretKey)
+                .compact();
     }
 
     /**
@@ -59,7 +59,20 @@ public class JwtUtil {
     }
 
     /**
-     * 💡 "이 토큰 주인(이메일)이 누구지?" 알아내는 메서드
+     * 💡 "이 토큰 주인(memberId)이 누구지?" 알아내는 메서드
+     */
+    public Long getMemberId(String token) {
+        String subject = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+        return Long.valueOf(subject);
+    }
+
+    /**
+     * 💡 "이 토큰에 적힌 이메일이 뭐지?" 알아내는 메서드 (필요시 사용)
      */
     public String getEmail(String token) {
         return Jwts.parser()
@@ -67,6 +80,6 @@ public class JwtUtil {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload()
-                .getSubject();
+                .get("email", String.class);
     }
 }

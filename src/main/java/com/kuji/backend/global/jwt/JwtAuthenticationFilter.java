@@ -30,10 +30,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // 3. 토큰이 진짜면(유효하면) "출입 허가" 도장 쾅!
             if (jwtUtil.validateToken(token)) {
-                String email = jwtUtil.getEmail(token);
+                Long memberId = jwtUtil.getMemberId(token);
 
-                // 스프링 시큐리티에게 "이 사람(이메일) 인증된 사람이니까 통과시켜줘!"라고 알려줌
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email,
+                // 스프링 시큐리티에게 "이 사람(회원 번호) 인증된 사람이니까 통과시켜줘!"라고 알려줌
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(memberId,
                         null, Collections.emptyList());
 
                 // 사용자의 상세 정보(IP 등)를 보관함에 같이 넣어줍니다.

@@ -23,6 +23,15 @@ public class MemberService {
     private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
 
     /**
+     * 내 정보 조회
+     */
+    public MemberProfileResponse getMyProfile(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 회원을 찾을 수 없습니다. (ID: " + memberId + ")"));
+        return MemberProfileResponse.from(member);
+    }
+
+    /**
      * 회원 가입 (일반 이메일 및 소셜 통합)
      */
     @Transactional
