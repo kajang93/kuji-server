@@ -83,6 +83,9 @@ public class MemberService {
                     return com.kuji.backend.domain.member.dto.LoginResponse.builder()
                             .token(jwtToken)
                             .isNewUser(false)
+                            .email(member.getEmail())
+                            .nickname(member.getNickname())
+                            .profileImageUrl(member.getProfileImageUrl())
                             .build();
                 })
                 .orElseGet(() -> {
