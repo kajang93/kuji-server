@@ -20,3 +20,6 @@ jwt:
   secret: kuji-secret-key-kuji-secret-key-kuji-secret-key
   # 💡 토큰 유효 시간 (밀리초 단위, 3600000 = 1시간)
   expiration: 3600000
+
+file:
+  upload-dir: uploads
