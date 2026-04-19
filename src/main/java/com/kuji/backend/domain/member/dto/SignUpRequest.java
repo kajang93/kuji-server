@@ -13,13 +13,17 @@ public record SignUpRequest(
         String password, // 소셜 로그인의 경우 비밀번호가 없을 수 있으므로 nullable 처리
         String nickname,
         LocalDate birthDate,
+        RoleType role,
+        String businessNumber,
+        String companyName,
+        String ceoName,
         Boolean isTermsAgreed,
         Boolean isPrivacyAgreed,
         Boolean isMarketingAgreed) {
     // 💡 실무 팁: Service 계층을 깔끔하게 유지하기 위해 DTO -> Entity 변환 메서드를 DTO 안에 둡니다.
     public Member toEntity(SocialType socialType, String socialId, String encodedPassword) {
         return Member.builder()
-                .role(RoleType.USER)
+                .role(this.role != null ? this.role : RoleType.USER)
                 .socialType(socialType)
                 .socialId(socialId)
                 .email(this.email)

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.kuji.backend.global.jwt.JwtUtil;
+import com.kuji.backend.domain.member.enums.RoleType;
+import com.kuji.backend.domain.member.entity.BusinessInfo;
+import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
+    private final BusinessInfoRepository businessInfoRepository;
 
     /**
      * 내 정보 조회
@@ -57,6 +61,19 @@ public class MemberService {
         // 💡 암호화된 비밀번호를 넘겨줍니다.
         Member newMember = java.util.Objects.requireNonNull(request.toEntity(socialType, socialId, encodedPassword));
         Member savedMember = memberRepository.save(newMember);
+
+        // 💡 만약 권한이 BIZ(사업자)라면 사업자 정보도 함께 생성하여 저장합니다!
+        if (request.role() == RoleType.BIZ) {
+            BusinessInfo businessInfo = BusinessInfo.builder()
+                    .member(savedMember)
+                    .businessNumber(request.businessNumber())
+                    .companyName(request.companyName())
+                    .ceoName(request.ceoName())
+                    .licenseImageUrl("pending_upload") // 💡 추후 파일 업로드 로직과 연결 필요
+                    .build();
+            businessInfoRepository.save(businessInfo);
+        }
+
         return java.util.Objects.requireNonNull(savedMember).getId();
     }
 
