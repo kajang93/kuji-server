@@ -7,6 +7,8 @@ import com.kuji.backend.domain.kuji.entity.KujiBoardImage;
 import com.kuji.backend.domain.kuji.enums.BoardImageType;
 import com.kuji.backend.domain.kuji.repository.KujiBoardImageRepository;
 import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
+import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
+import com.kuji.backend.domain.kuji.entity.KujiItem;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.global.service.FileService;
@@ -25,6 +27,7 @@ public class KujiBoardService {
 
     private final KujiBoardRepository kujiBoardRepository;
     private final KujiBoardImageRepository kujiBoardImageRepository;
+    private final KujiItemRepository kujiItemRepository;
     private final MemberRepository memberRepository;
     private final FileService fileService;
 
@@ -68,6 +71,16 @@ public class KujiBoardService {
     }
 
     /**
+     * 상태 변경
+     */
+    @Transactional
+    public void updateBoardStatus(Long boardId, com.kuji.backend.domain.kuji.enums.BoardStatus status) {
+        KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        kujiBoard.updateStatus(status);
+    }
+
+    /**
      * 전체 목록 조회
      */
     public List<KujiBoardResponse> getAllBoards() {
@@ -78,6 +91,14 @@ public class KujiBoardService {
 
     private KujiBoardResponse convertToResponse(KujiBoard board) {
         List<KujiBoardImage> images = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(board.getId());
+        List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(board.getId());
+
+        int totalCount = items.stream()
+                .mapToInt(item -> item.getTotalQty() != null ? item.getTotalQty() : 0)
+                .sum();
+        int remainCount = items.stream()
+                .mapToInt(item -> item.getRemainQty() != null ? item.getRemainQty() : 0)
+                .sum();
         
         return KujiBoardResponse.builder()
                 .id(board.getId())
@@ -86,12 +107,14 @@ public class KujiBoardService {
                 .status(board.getStatus())
                 .rewardRate(board.getRewardRate())
                 .createdAt(board.getCreatedAt())
+                .totalCount(totalCount)
+                .remainCount(remainCount)
                 .images(images.stream()
                         .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()
                                 .id(img.getId())
                                 .imageUrl(img.getImageUrl())
                                 .sequence(img.getSequence())
-                                .imageType(img.getImageType().name())
+                                .imageType(img.getImageType() != null ? img.getImageType().name() : "THUMBNAIL")
                                 .build())
                         .collect(Collectors.toList()))
                 .build();

@@ -16,6 +16,8 @@ public class KujiBoardResponse {
     private BoardStatus status;
     private Integer rewardRate;
     private LocalDateTime createdAt;
+    private Integer totalCount;
+    private Integer remainCount;
     private List<KujiBoardImageResponse> images;
 
     @Getter
