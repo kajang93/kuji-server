@@ -14,6 +14,7 @@ public record MemberProfileResponse(
         String nickname,
         String profileImageUrl,
         LocalDate birthDate,
+        Integer points,
         RoleType role) {
 
     public static MemberProfileResponse from(Member member) {
@@ -23,6 +24,7 @@ public record MemberProfileResponse(
                 member.getNickname(),
                 member.getProfileImageUrl(),
                 member.getBirthDate(),
+                member.getPoint(),
                 member.getRole());
     }
 }

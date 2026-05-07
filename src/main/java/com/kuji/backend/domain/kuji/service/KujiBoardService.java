@@ -99,6 +99,7 @@ public class KujiBoardService {
         int remainCount = items.stream()
                 .mapToInt(item -> item.getRemainQty() != null ? item.getRemainQty() : 0)
                 .sum();
+        int gradeCount = items.size();
         
         return KujiBoardResponse.builder()
                 .id(board.getId())
@@ -109,6 +110,7 @@ public class KujiBoardService {
                 .createdAt(board.getCreatedAt())
                 .totalCount(totalCount)
                 .remainCount(remainCount)
+                .gradeCount(gradeCount)
                 .images(images.stream()
                         .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()
                                 .id(img.getId())

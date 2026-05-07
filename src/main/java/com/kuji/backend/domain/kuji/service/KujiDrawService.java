@@ -1,0 +1,133 @@
+package com.kuji.backend.domain.kuji.service;
+
+import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
+import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
+import com.kuji.backend.domain.kuji.entity.KujiBoard;
+import com.kuji.backend.domain.kuji.entity.KujiItem;
+import com.kuji.backend.domain.kuji.entity.DrawHistory;
+import com.kuji.backend.domain.kuji.enums.BoardStatus;
+import com.kuji.backend.domain.kuji.enums.DrawStatus;
+import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
+import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
+import com.kuji.backend.domain.kuji.repository.DrawHistoryRepository;
+import com.kuji.backend.domain.member.entity.Member;
+import com.kuji.backend.domain.member.entity.PointHistory;
+import com.kuji.backend.domain.member.enums.PointType;
+import com.kuji.backend.domain.member.repository.MemberRepository;
+import com.kuji.backend.domain.member.repository.PointHistoryRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class KujiDrawService {
+
+    private final KujiBoardRepository kujiBoardRepository;
+    private final KujiItemRepository kujiItemRepository;
+    private final DrawHistoryRepository drawHistoryRepository;
+    private final MemberRepository memberRepository;
+    private final PointHistoryRepository pointHistoryRepository;
+    private final KujiItemService kujiItemService;
+
+    /**
+     * 무작위 뽑기 실행 (비관적 락 적용)
+     */
+    @Transactional
+    public KujiDrawResponse draw(Long memberId, Long boardId, int count) {
+        // 1. 쿠지 판 조회 및 비관적 락 적용
+        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+
+        if (board.getStatus() != BoardStatus.ACTIVE) {
+            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
+        }
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+
+        List<KujiItem> winningItems = new ArrayList<>();
+        List<DrawHistory> drawHistories = new ArrayList<>();
+        Random random = new Random();
+
+        // 2. 전체 상품 목록 한 번만 조회
+        List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+
+        // 3. 요청한 갯수만큼 반복 추첨
+        for (int i = 0; i < count; i++) {
+            List<KujiItem> availableItems = allItems.stream()
+                    .filter(it -> it.getRemainQty() > 0)
+                    .collect(Collectors.toList());
+
+            int totalRemain = availableItems.stream()
+                    .mapToInt(KujiItem::getRemainQty)
+                    .sum();
+
+            if (totalRemain <= 0) {
+                throw new IllegalStateException("남은 상품이 없습니다.");
+            }
+
+            // 가중치 기반 랜덤 선택
+            int n = random.nextInt(totalRemain) + 1;
+            int sum = 0;
+            for (KujiItem item : availableItems) {
+                sum += item.getRemainQty();
+                if (n <= sum) {
+                    // 당첨!
+                    item.decreaseRemainQty();
+                    winningItems.add(item);
+                    
+                    // 당첨 이력 생성 (drawhistory 테이블 매핑)
+                    DrawHistory history = DrawHistory.builder()
+                            .status(DrawStatus.DRAWN)
+                            .member(member)
+                            .kujiBoard(board)
+                            .kujiItem(item)
+                            .build();
+                    drawHistories.add(drawHistoryRepository.save(history));
+                    break;
+                }
+            }
+        }
+
+        // 4. 포인트 적립 로직 (rewardRate를 1회당 고정 포인트로 사용)
+        if (board.getRewardRate() != null && board.getRewardRate() > 0) {
+            int rewardAmount = count * board.getRewardRate();
+            if (rewardAmount > 0) {
+                member.addPoint(rewardAmount);
+                
+                // 첫 번째 당첨 이력과 연결 (스키마 구조상 1:1 대응이 아닐 수 있으나 일단 연결)
+                DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
+
+                PointHistory pointHistory = PointHistory.builder()
+                        .member(member)
+                        .drawHistory(firstHistory)
+                        .amount(rewardAmount)
+                        .type(PointType.REWARD)
+                        .description(String.format("[%s] %d회 뽑기 적립 (%d%%)", board.getTitle(), count, board.getRewardRate()))
+                        .appliedRewardRate(board.getRewardRate())
+                        .build();
+                pointHistoryRepository.save(pointHistory);
+            }
+        }
+
+        // 5. 결과 반환
+        List<KujiItemResponse> resultDtos = winningItems.stream()
+                .map(kujiItemService::convertToResponse)
+                .collect(Collectors.toList());
+
+        int finalTotalRemain = allItems.stream()
+                .mapToInt(KujiItem::getRemainQty)
+                .sum();
+
+        return KujiDrawResponse.builder()
+                .results(resultDtos)
+                .totalRemaining(finalTotalRemain)
+                .build();
+    }
+}

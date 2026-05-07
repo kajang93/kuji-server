@@ -152,19 +152,28 @@ public class KujiItemService {
                 .collect(Collectors.toList());
     }
 
-    private KujiItemResponse convertToResponse(KujiItem item) {
+    public KujiItemResponse convertToResponse(KujiItem item) {
         List<KujiItemImage> images = kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(item.getId());
         List<String> imageUrls = images.stream()
                 .map(KujiItemImage::getImageUrl)
                 .collect(Collectors.toList());
 
+        int total = item.getTotalQty() != null ? item.getTotalQty() : 0;
+        int remain = item.getRemainQty() != null ? item.getRemainQty() : 0;
+        int sold = total - remain;
+        
+        java.util.List<Boolean> opened = new java.util.ArrayList<>();
+        for (int i = 0; i < sold; i++) opened.add(true);
+        for (int i = 0; i < remain; i++) opened.add(false);
+
         return KujiItemResponse.builder()
                 .id(item.getId())
                 .grade(item.getGrade())
                 .name(item.getName())
-                .totalQty(item.getTotalQty())
-                .remainQty(item.getRemainQty())
+                .totalQty(total)
+                .remainQty(remain)
                 .imageUrls(imageUrls)
+                .opened(opened)
                 .build();
     }
 }

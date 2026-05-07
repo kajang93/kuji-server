@@ -18,6 +18,7 @@ public class KujiBoardResponse {
     private LocalDateTime createdAt;
     private Integer totalCount;
     private Integer remainCount;
+    private Integer gradeCount; // 등급 종류 수 (예: A~G상 총 7종)
     private List<KujiBoardImageResponse> images;
 
     @Getter
