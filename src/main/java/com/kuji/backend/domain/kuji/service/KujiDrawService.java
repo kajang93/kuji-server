@@ -1,5 +1,6 @@
 package com.kuji.backend.domain.kuji.service;
 
+import com.kuji.backend.domain.kuji.dto.DrawHistoryResponse;
 import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
 import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
 import com.kuji.backend.domain.kuji.entity.KujiBoard;
@@ -117,9 +118,14 @@ public class KujiDrawService {
         }
 
         // 5. 결과 반환
-        List<KujiItemResponse> resultDtos = winningItems.stream()
-                .map(kujiItemService::convertToResponse)
-                .collect(Collectors.toList());
+        List<KujiItemResponse> resultDtos = new java.util.ArrayList<>();
+        for (DrawHistory history : drawHistories) {
+            KujiItemResponse dto = kujiItemService.convertToResponse(history.getKujiItem());
+            // Since DTO might be immutable, we assume it has @Data or we use a custom setter
+            // If it doesn't have a setter, we would need a new builder call
+            dto.setDrawHistoryId(history.getId());
+            resultDtos.add(dto);
+        }
 
         int finalTotalRemain = allItems.stream()
                 .mapToInt(KujiItem::getRemainQty)
@@ -129,5 +135,24 @@ public class KujiDrawService {
                 .results(resultDtos)
                 .totalRemaining(finalTotalRemain)
                 .build();
+    }
+
+    /**
+     * 내 당첨 내역(보관함) 조회
+     */
+    public List<DrawHistoryResponse> getMyDrawHistory(Long memberId) {
+        List<DrawHistory> histories = drawHistoryRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId);
+        
+        return histories.stream()
+                .map(h -> DrawHistoryResponse.builder()
+                        .id(h.getId())
+                        .boardTitle(h.getKujiBoard().getTitle())
+                        .grade(h.getKujiItem().getGrade())
+                        .itemName(h.getKujiItem().getName())
+                        .itemImageUrl(h.getKujiItem().getKujiItemImages().isEmpty() ? "" : h.getKujiItem().getKujiItemImages().get(0).getImageUrl())
+                        .status(h.getStatus())
+                        .createdAt(h.getCreatedAt())
+                        .build())
+                .toList();
     }
 }

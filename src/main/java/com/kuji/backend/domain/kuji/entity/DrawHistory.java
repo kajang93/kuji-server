@@ -2,6 +2,7 @@ package com.kuji.backend.domain.kuji.entity;
 
 import com.kuji.backend.domain.kuji.enums.DrawStatus;
 import com.kuji.backend.domain.member.entity.Member;
+import com.kuji.backend.domain.shipping.entity.Shipping;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -42,8 +43,9 @@ public class DrawHistory {
     @JoinColumn(name = "kuji_item_id", nullable = false)
     private KujiItem kujiItem;
 
-    @Column(name = "delivery_id")
-    private Long deliveryId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "delivery_id")
+    private Shipping shipping;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,5 +57,10 @@ public class DrawHistory {
         this.member = member;
         this.kujiBoard = kujiBoard;
         this.kujiItem = kujiItem;
+    }
+
+    public void setShipping(Shipping shipping) {
+        this.shipping = shipping;
+        this.status = DrawStatus.SHIPPING_REQUESTED; // 배송 요청 상태로 변경
     }
 }

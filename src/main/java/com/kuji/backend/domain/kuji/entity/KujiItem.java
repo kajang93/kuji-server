@@ -11,6 +11,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "kujiitem")
@@ -38,6 +40,9 @@ public class KujiItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kuji_board_id", nullable = false)
     private KujiBoard kujiBoard;
+
+    @OneToMany(mappedBy = "kujiItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<KujiItemImage> kujiItemImages = new ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

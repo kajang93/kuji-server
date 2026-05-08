@@ -6,7 +6,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+import com.kuji.backend.domain.shipping.entity.Shipping;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
 @Repository
 public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> {
     List<DrawHistory> findAllByMemberIdOrderByCreatedAtDesc(Long memberId);
+    List<DrawHistory> findAllByShipping(Shipping shipping); // 배송 꾸러미별 상품 조회용 추가
 }
