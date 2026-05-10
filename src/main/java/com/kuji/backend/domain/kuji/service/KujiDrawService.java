@@ -82,7 +82,7 @@ public class KujiDrawService {
                     // 당첨!
                     item.decreaseRemainQty();
                     winningItems.add(item);
-                    
+
                     // 당첨 이력 생성 (drawhistory 테이블 매핑)
                     DrawHistory history = DrawHistory.builder()
                             .status(DrawStatus.DRAWN)
@@ -101,7 +101,7 @@ public class KujiDrawService {
             int rewardAmount = count * board.getRewardRate();
             if (rewardAmount > 0) {
                 member.addPoint(rewardAmount);
-                
+
                 // 첫 번째 당첨 이력과 연결 (스키마 구조상 1:1 대응이 아닐 수 있으나 일단 연결)
                 DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
 
@@ -110,7 +110,8 @@ public class KujiDrawService {
                         .drawHistory(firstHistory)
                         .amount(rewardAmount)
                         .type(PointType.REWARD)
-                        .description(String.format("[%s] %d회 뽑기 적립 (%d%%)", board.getTitle(), count, board.getRewardRate()))
+                        .description(
+                                String.format("[%s] %d회 뽑기 적립 (%d%%)", board.getTitle(), count, board.getRewardRate()))
                         .appliedRewardRate(board.getRewardRate())
                         .build();
                 pointHistoryRepository.save(pointHistory);
@@ -121,7 +122,8 @@ public class KujiDrawService {
         List<KujiItemResponse> resultDtos = new java.util.ArrayList<>();
         for (DrawHistory history : drawHistories) {
             KujiItemResponse dto = kujiItemService.convertToResponse(history.getKujiItem());
-            // Since DTO might be immutable, we assume it has @Data or we use a custom setter
+            // Since DTO might be immutable, we assume it has @Data or we use a custom
+            // setter
             // If it doesn't have a setter, we would need a new builder call
             dto.setDrawHistoryId(history.getId());
             resultDtos.add(dto);
@@ -142,14 +144,15 @@ public class KujiDrawService {
      */
     public List<DrawHistoryResponse> getMyDrawHistory(Long memberId) {
         List<DrawHistory> histories = drawHistoryRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId);
-        
+
         return histories.stream()
                 .map(h -> DrawHistoryResponse.builder()
                         .id(h.getId())
                         .boardTitle(h.getKujiBoard().getTitle())
                         .grade(h.getKujiItem().getGrade())
                         .itemName(h.getKujiItem().getName())
-                        .itemImageUrl(h.getKujiItem().getKujiItemImages().isEmpty() ? "" : h.getKujiItem().getKujiItemImages().get(0).getImageUrl())
+                        .itemImageUrl(h.getKujiItem().getKujiItemImages().isEmpty() ? ""
+                                : h.getKujiItem().getKujiItemImages().get(0).getImageUrl())
                         .status(h.getStatus())
                         .createdAt(h.getCreatedAt())
                         .build())
