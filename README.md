@@ -1,61 +1,89 @@
-### ✅ Phase 1: 인프라 및 보안/인증 코어 (완료)
-- [x] DB 설계 및 PostgreSQL 13개 테이블 수동 생성 및 매핑 (`ddl-auto: validate`)
-- [x] Spring Security + BCrypt 암호화 및 JWT Stateless 인증 필터 구현
-- [x] `@RestControllerAdvice` 전역 예외 처리 및 공통 응답 규격화
-- [x] 엔티티 공통 필드 매핑 (`BaseTimeEntity`)
+# ⚙️ 이치방쿠지 (一番くじ) 백엔드 시스템
 
-### ✅ Phase 2: 쿠지(Kuji) 핵심 엔진 빌드 (Active 🎯)
-
-#### 2.1 회원 및 인증 통합 (완료)
-- [x] 카카오 OAuth 2.0 연동 및 Kuji JWT 토큰 발급 로직 구축
-- [x] 프론트엔드-백엔드 인증 통합 및 로컬 스토리지 기반 로그인 유지
-
-#### 2.2 MVP 1단계: 쿠지 판 전시 (완료 ✨)
-- [x] **엔티티 설계**: `KujiBoard`(판), `KujiBoardImage`(이미지) 엔티티 설계 및 매핑 완료
-- [x] **리스트 API**: 메인 화면 전시용 `GET /api/kuji` 리스트 조회 API 구축 (이미지 포함)
-- [x] **프론트 연동**: React 메인 화면에 쿠지 리스트 카드(`KujiCard`) 렌더링
-
-#### 2.3 MVP 2단계: 상품 정보 및 관리자 백오피스 연동 (완료 ✨)
-- [x] **상품 매핑**: `KujiItem`(상품) 엔티티 설계 및 `KujiBoard` 연관관계 매핑 완료
-- [x] **관리자 등록 API**: 특정 쿠지 판의 상세 상품 대량 등록 및 다중 이미지 업로드 API 구현
-- [x] **상세 API**: 특정 쿠지 판의 상품별 수량을 보여주는 상세 조회 API (`GET /api/kuji/{id}`) 구현
-- [x] **수정 및 삭제 API**: 쿠지 상품 개별 수정(수량/이름/이미지) 및 쿠지 판 상태(운영중/종료) 변경 API 구현
-
-#### 2.4 MVP 3단계: 무작위 뽑기 및 경제 시스템 (Active 🎯)
-- [ ] **뽑기 API**: 전체 수량/남은 수량 기반 실제 확률 추첨 알고리즘 설계 (`POST /api/kuji/{id}/play`)
-- [ ] **재고 차감 로직**: 상품 당첨 시 `remain_qty` 차감 로직 구현 및 비관적 락(Pessimistic Lock)으로 동시성 제어
-- [ ] **결제 및 포인트**: 회원 보유 포인트 검증 및 차감 로직 연동
-- [ ] **당첨 이력 관리**: 당첨된 상품 내역(`WinningHistory`) 저장 및 조회 기능 연동
-
-### 🏗️ Phase 3: 서비스 확장 및 부가 기능 고도화
-
-#### 3.1 마이페이지 및 프로필 (후순위)
-- [ ] **사용자 정보**: 가입일, 생년월일 수정 기능
-- [ ] **물류 연동**: 당첨 상품 수령을 위한 배송지 입력 및 관리 기능
-- [ ] **이미지 스토리지**: AWS S3를 활용한 회원 프로필 사진 및 쿠지 썸네일 등록
-
-#### 3.2 커뮤니티 및 알림
-- [ ] **커뮤니티**: 자유 게시판, 인증 샷 게시판 및 댓글/좋아요 기능
-- [ ] **푸시 알림**: FCM(Firebase Cloud Messaging) 연동 및 알림 설정
-
-### 🚀 Phase 4: 프로덕션 운영 및 출시
-- [ ] **배포 자동화**: Railway CI/CD 파이프라인 구축 및 무중단 배포
-- [ ] **하이브리드 앱**: Capacitor 빌드 및 스토어(Android/iOS) 최종 심사
+> **"행운의 데이터를 실시간으로 제어하는 강력한 코어"**  
+> 본 프로젝트는 '이치방쿠지' 웹 서비스의 핵심 비즈니스 로직을 담당하는 Spring Boot 기반의 백엔드 서버입니다.  
+> 확률 기반 추첨 엔진, 동시성 제어, 그리고 복잡한 물류 시스템을 안정적으로 처리합니다.
 
 ---
 
-## 🏁 다음 작업 가이드 (Next Steps)
+## 🛠️ 기술 스택 (Tech Stack)
 
-거창한 시스템보다 **눈에 보이는 화면(수직 썰기)**부터 하나씩 완성해 나갑니다.
+| 항목 | 기술 | 상세 내용 |
+|------|------|------|
+| **Framework** | Spring Boot 3.x | 효율적인 REST API 및 의존성 관리 |
+| **Language** | Java 17 | 최신 자바 문법 및 안정적인 런타임 |
+| **Database** | PostgreSQL | 관계형 데이터 설계 및 JSONB/Enum 지원 |
+| **Security** | Spring Security | JWT 기반의 무상태(Stateless) 인증 시스템 |
+| **ORM** | Spring Data JPA | 객체 지향적 DB 조작 및 성능 최적화 |
+| **Build Tool** | Gradle | 유연한 빌드 및 멀티 프로젝트 관리 지원 |
 
-1.  **Step 1. KujiBoard 엔티티 생성**: `domain/kuji` 패키지에 쿠지 판 뼈대(Entity)를 만들고 DBeaver로 가짜 데이터를 1~2개 넣습니다.
-2.  **Step 2. 무지성 리스트 반환 API**: 다른 로직 없이 DB의 쿠지 판 데이터를 모두 뱉어주는 `GET /api/kuji` API를 작성합니다.
-3.  **Step 3. 프론트엔드 렌더링**: 프론트에서 위 API를 호출하여 메인 화면에 쿠지 카드 목록이 노출되는지 확인합니다.
+---
+
+## ✨ 핵심 기능 (Core Features)
+
+### 1. 실시간 확률 기반 뽑기 엔진 (Draw Engine)
+- **확률 추첨**: 남은 수량 기반의 공정한 무작위 추첨 알고리즘 구현.
+- **동시성 제어**: 다수의 사용자가 동시에 뽑을 때 발생하는 재고 문제를 방지하기 위한 데이터베이스 락(Lock) 전략 적용.
+- **포인트 연동**: 뽑기 성공 시 실시간 포인트 차감 및 당첨 보상 적립.
+
+### 2. 스마트 물류 및 배송 시스템 (Logistics)
+- **보관함 시스템**: 당첨된 상품을 즉시 배송하지 않고 가상 보관함에 저장하여 합배송 지원.
+- **배송 상태 관리**: `PREPARING` -> `SHIPPING` -> `DELIVERED`로 이어지는 상세 상태 추적.
+- **자동화 기반 마련**: 택배사 API 연동을 고려한 운송장 번호 관리 시스템 구축.
+
+### 3. 보안 및 사용자 인증 (Auth)
+- **JWT 인증**: 모든 요청에 대한 토큰 검증 및 보안 필터 적용.
+- **카카오 OAuth 2.0**: 소셜 로그인 연동을 통한 간편 가입 및 로그인.
+- **Role-Based Access**: 일반 사용자, 사업자, 관리자별 상세 권한 제어.
+
+---
+
+## 🚀 API 엔드포인트 목록 (API Specs)
+
+### 🛒 쿠지 및 뽑기 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| GET | `/api/kuji` | 운영 중인 쿠지 판 리스트 조회 |
+| GET | `/api/kuji/{id}` | 특정 쿠지 판의 상품 상세 및 남은 수량 조회 |
+| POST | `/api/kuji/{id}/draw` | 실시간 쿠지 뽑기 실행 (포인트 차감/당첨 기록) |
+| GET | `/api/kuji/draw-history/me` | 나의 당첨 내역(보관함) 조회 |
+
+### 🚚 배송 및 물류 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| POST | `/api/shipping` | 보관함 상품 선택 및 배송 신청 |
+| GET | `/api/shipping/me` | 나의 배송 현황 및 이력 조회 |
+| GET | `/api/shipping/admin` | (관리자) 전체 배송 요청 리스트 조회 |
+| PATCH | `/api/shipping/{id}/tracking` | (관리자) 운송장 등록 및 배송 시작 처리 |
+
+---
+
+## 📅 프로젝트 진행 현황 (Progress)
+
+### ✅ Phase 1: 인프라 및 보안 (완료)
+- [x] DB 스키마 설계 및 JPA 엔티티 매핑 완료
+- [x] JWT + Spring Security 인증 아키텍처 구축
+- [x] 전역 예외 처리(`GlobalExceptionHandler`) 및 공통 응답 규격화
+
+### ✅ Phase 2: 비즈니스 로직 고도화 (완료 ✨)
+- [x] 실시간 재고 차감 및 뽑기 엔진 연동
+- [x] 보관함(DrawHistory) 및 배송(Shipping) 시스템 구축
+- [x] 카카오 소셜 로그인 연동 완료
+
+### 🏃 Phase 3: 배송 고도화 및 커뮤니티 (진행 중)
+- [ ] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
+- [ ] **커뮤니티(게시판)**: 당첨 인증, 자유 게시판, 댓글 및 좋아요 기능 구축
+- [ ] **실시간 알림**: FCM(Firebase Cloud Messaging)을 통한 배송 시작 및 문의 답변 알림
+
+### 🏗️ Phase 4: 결제 및 상업화 준비
+- [ ] **결제 시스템**: 토스페이먼츠 / 카카오페이 API 연동 (포인트 충전)
+- [ ] **이미지 스토리지**: AWS S3 연동을 통한 이미지 업로드 최적화
+- [ ] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
 
 ---
 
 ## 🧑‍💻 개발자 (Developer)
 
-**KyungAh Jang** | Full Stack Developer
-* 📧 Email: stars_ka@naver.com
-* 🐙 GitHub: https://github.com/kajang93
+**KyungAh Jang** | Full Stack Developer  
+* 📧 Email: stars_ka@naver.com  
+* 🐙 GitHub: [GitHub](https://github.com/kajang93)
