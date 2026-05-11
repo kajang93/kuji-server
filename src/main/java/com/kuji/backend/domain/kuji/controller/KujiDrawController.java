@@ -3,6 +3,7 @@ package com.kuji.backend.domain.kuji.controller;
 import com.kuji.backend.domain.kuji.dto.DrawHistoryResponse;
 import com.kuji.backend.domain.kuji.dto.KujiDrawRequest;
 import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
+import com.kuji.backend.domain.kuji.dto.RecentDrawResponse;
 import com.kuji.backend.domain.kuji.service.KujiDrawService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -40,5 +41,13 @@ public class KujiDrawController {
     public ResponseEntity<List<DrawHistoryResponse>> getMyDrawHistory(Authentication authentication) {
         Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(kujiDrawService.getMyDrawHistory(memberId));
+    }
+
+    /**
+     * 전역 최근 당첨 내역 조회 (티커용, 비로그인 허용)
+     */
+    @GetMapping("/draw-history/recent")
+    public ResponseEntity<List<RecentDrawResponse>> getRecentDrawHistory() {
+        return ResponseEntity.ok(kujiDrawService.getRecentDrawHistory());
     }
 }

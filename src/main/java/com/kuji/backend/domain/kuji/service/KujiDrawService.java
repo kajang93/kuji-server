@@ -3,6 +3,7 @@ package com.kuji.backend.domain.kuji.service;
 import com.kuji.backend.domain.kuji.dto.DrawHistoryResponse;
 import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
 import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
+import com.kuji.backend.domain.kuji.dto.RecentDrawResponse;
 import com.kuji.backend.domain.kuji.entity.KujiBoard;
 import com.kuji.backend.domain.kuji.entity.KujiItem;
 import com.kuji.backend.domain.kuji.entity.DrawHistory;
@@ -157,5 +158,31 @@ public class KujiDrawService {
                         .createdAt(h.getCreatedAt())
                         .build())
                 .toList();
+    }
+
+    /**
+     * 전역 최근 당첨 내역 조회 (티커용)
+     */
+    public List<RecentDrawResponse> getRecentDrawHistory() {
+        // 최신 20건 조회
+        List<DrawHistory> histories = drawHistoryRepository.findTop20ByOrderByCreatedAtDesc();
+
+        return histories.stream()
+                .map(h -> RecentDrawResponse.builder()
+                        .maskedNickname(maskNickname(h.getMember().getNickname()))
+                        .boardTitle(h.getKujiBoard().getTitle())
+                        .grade(h.getKujiItem().getGrade())
+                        .itemName(h.getKujiItem().getName())
+                        .createdAt(h.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * 닉네임 마스킹 (예: 홍길동 -> 홍** / ka**** -> ka***)
+     */
+    private String maskNickname(String nickname) {
+        if (nickname == null || nickname.length() < 2) return "*";
+        return nickname.substring(0, 2) + "*".repeat(Math.max(1, nickname.length() - 2));
     }
 }
