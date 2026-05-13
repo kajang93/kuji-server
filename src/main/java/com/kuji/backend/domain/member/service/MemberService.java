@@ -96,7 +96,7 @@ public class MemberService {
         return memberRepository.findBySocialTypeAndSocialId(SocialType.KAKAO, socialId)
                 .map(member -> {
                     System.out.println("🔔 [Kakao-Login] 기존 회원 로그인 - ID: " + member.getId());
-                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail());
+                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
                     return com.kuji.backend.domain.member.dto.LoginResponse.builder()
                             .token(jwtToken)
                             .isNewUser(false)
@@ -139,7 +139,7 @@ public class MemberService {
                             .build();
 
                     Member savedMember = memberRepository.save(newMember);
-                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail());
+                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail(), savedMember.getRole().name());
 
                     return com.kuji.backend.domain.member.dto.LoginResponse.builder()
                             .token(jwtToken)
@@ -160,7 +160,7 @@ public class MemberService {
         }
 
         // 검증 통과! 이제 ID 대신 영롱한 JWT 토큰을 발급해서 줍니다!
-        return jwtUtil.createToken(member.getId(), member.getEmail());
+        return jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
     }
 
     /**

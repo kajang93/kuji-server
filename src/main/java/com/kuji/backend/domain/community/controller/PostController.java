@@ -51,6 +51,20 @@ public class PostController {
     }
 
     /**
+     * 게시글 수정 API
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> updatePost(
+            Authentication authentication,
+            @PathVariable("id") Long postId,
+            @RequestBody PostCreateRequest request) {
+        
+        Long memberId = (Long) authentication.getPrincipal();
+        postService.updatePost(memberId, postId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * 게시글 삭제 API
      */
     @DeleteMapping("/{id}")

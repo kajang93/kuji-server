@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -28,22 +29,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
 
-            // 3. 토큰이 진짜면(유효하면) "출입 허가" 도장 쾅!
+            // 3. 토큰이 유효하면 인증 정보 설정
             if (jwtUtil.validateToken(token)) {
                 Long memberId = jwtUtil.getMemberId(token);
+                String role = jwtUtil.getRole(token);
 
-                // 스프링 시큐리티에게 "이 사람(회원 번호) 인증된 사람이니까 통과시켜줘!"라고 알려줌
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(memberId,
-                        null, Collections.emptyList());
+                // 역할 정보를 시큐리티 권한으로 변환 (ROLE_ 접두사 추가)
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        memberId,
+                        null,
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                );
 
-                // 사용자의 상세 정보(IP 등)를 보관함에 같이 넣어줍니다.
                 authentication.setDetails(new org.springframework.security.web.authentication.WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
 
-        // 4. 다음 단계(다른 필터나 컨트롤러)로 넘어가기
+        // 4. 다음 단계로 넘어가기
         filterChain.doFilter(request, response);
     }
 }

@@ -66,6 +66,21 @@ public class PostService {
     }
 
     /**
+     * 게시글 수정
+     */
+    @Transactional
+    public void updatePost(Long memberId, Long postId, PostCreateRequest request) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+
+        if (!post.getMember().getId().equals(memberId)) {
+            throw new IllegalArgumentException("본인의 게시글만 수정할 수 있습니다.");
+        }
+
+        post.update(request.title(), request.content(), request.category());
+    }
+
+    /**
      * 게시글 삭제
      */
     @Transactional
