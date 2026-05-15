@@ -27,8 +27,12 @@ public class KujiController {
      * 쿠지 판 전체 목록 조회
      */
     @GetMapping
-    public ResponseEntity<List<KujiBoardResponse>> getAllBoards() {
-        return ResponseEntity.ok(kujiBoardService.getAllBoards());
+    public ResponseEntity<List<KujiBoardResponse>> getAllBoards(Authentication authentication) {
+        Long memberId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof Long) {
+            memberId = (Long) authentication.getPrincipal();
+        }
+        return ResponseEntity.ok(kujiBoardService.getAllBoards(memberId));
     }
 
     /**

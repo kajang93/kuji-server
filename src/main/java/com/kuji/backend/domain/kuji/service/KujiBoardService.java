@@ -8,6 +8,7 @@ import com.kuji.backend.domain.kuji.enums.BoardImageType;
 import com.kuji.backend.domain.kuji.repository.KujiBoardImageRepository;
 import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
+import com.kuji.backend.domain.kuji.repository.WishlistRepository; // 추가
 import com.kuji.backend.domain.kuji.entity.KujiItem;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
@@ -29,6 +30,7 @@ public class KujiBoardService {
     private final KujiBoardImageRepository kujiBoardImageRepository;
     private final KujiItemRepository kujiItemRepository;
     private final MemberRepository memberRepository;
+    private final WishlistRepository wishlistRepository; // 추가
     private final FileService fileService;
 
     /**
@@ -81,15 +83,17 @@ public class KujiBoardService {
     }
 
     /**
-     * 전체 목록 조회
+     * 전체 목록 조회 (찜 여부 포함)
      */
-    public List<KujiBoardResponse> getAllBoards() {
+    public List<KujiBoardResponse> getAllBoards(Long memberId) {
+        Member member = memberId != null ? memberRepository.findById(memberId).orElse(null) : null;
+        
         return kujiBoardRepository.findAll().stream()
-                .map(this::convertToResponse)
+                .map(board -> convertToResponse(board, member))
                 .collect(Collectors.toList());
     }
 
-    private KujiBoardResponse convertToResponse(KujiBoard board) {
+    private KujiBoardResponse convertToResponse(KujiBoard board, Member member) {
         List<KujiBoardImage> images = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(board.getId());
         List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(board.getId());
 
@@ -100,6 +104,11 @@ public class KujiBoardService {
                 .mapToInt(item -> item.getRemainQty() != null ? item.getRemainQty() : 0)
                 .sum();
         int gradeCount = items.size();
+
+        boolean isWished = false;
+        if (member != null) {
+            isWished = wishlistRepository.existsByMemberAndKujiBoard(member, board);
+        }
         
         return KujiBoardResponse.builder()
                 .id(board.getId())
@@ -111,6 +120,7 @@ public class KujiBoardService {
                 .totalCount(totalCount)
                 .remainCount(remainCount)
                 .gradeCount(gradeCount)
+                .isWished(isWished)
                 .images(images.stream()
                         .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()
                                 .id(img.getId())
