@@ -38,3 +38,6 @@ out/
 
 ### Node ###
 node_modules/
+
+### Secrets ###
+application-secret.yml

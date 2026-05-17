@@ -38,13 +38,25 @@ public class Post extends BaseTimeEntity {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
+    @Column(length = 512)
+    private String image1;
+
+    @Column(length = 512)
+    private String image2;
+
+    @Column(length = 512)
+    private String image3;
+
     @Builder
-    public Post(String title, String content, PostCategory category, Member member) {
+    public Post(String title, String content, PostCategory category, Member member, String image1, String image2, String image3) {
         this.title = title;
         this.content = content;
         this.category = category;
         this.member = member;
         this.viewCount = 0;
+        this.image1 = image1;
+        this.image2 = image2;
+        this.image3 = image3;
     }
 
     /**
@@ -57,9 +69,12 @@ public class Post extends BaseTimeEntity {
     /**
      * 게시글 수정
      */
-    public void update(String title, String content, PostCategory category) {
+    public void update(String title, String content, PostCategory category, String image1, String image2, String image3) {
         this.title = title;
         this.content = content;
         this.category = category;
+        this.image1 = image1;
+        this.image2 = image2;
+        this.image3 = image3;
     }
 }

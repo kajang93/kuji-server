@@ -8,9 +8,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -20,15 +24,16 @@ public class PostController {
     private final PostService postService;
 
     /**
-     * 게시글 작성 API
+     * 게시글 작성 API (이미지 포함)
      */
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Long> createPost(
             Authentication authentication,
-            @RequestBody PostCreateRequest request) {
+            @RequestPart("request") PostCreateRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
         Long memberId = (Long) authentication.getPrincipal();
-        return ResponseEntity.ok(postService.createPost(memberId, request));
+        return ResponseEntity.ok(postService.createPost(memberId, request, files));
     }
 
     /**
@@ -51,16 +56,17 @@ public class PostController {
     }
 
     /**
-     * 게시글 수정 API
+     * 게시글 수정 API (이미지 수정 포함)
      */
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> updatePost(
             Authentication authentication,
             @PathVariable("id") Long postId,
-            @RequestBody PostCreateRequest request) {
+            @RequestPart("request") PostCreateRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
         Long memberId = (Long) authentication.getPrincipal();
-        postService.updatePost(memberId, postId, request);
+        postService.updatePost(memberId, postId, request, files);
         return ResponseEntity.ok().build();
     }
 
