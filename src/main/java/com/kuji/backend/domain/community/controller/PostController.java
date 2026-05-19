@@ -22,6 +22,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final com.kuji.backend.domain.community.service.PostInteractionService postInteractionService;
 
     /**
      * 게시글 작성 API (이미지 포함)
@@ -41,18 +42,23 @@ public class PostController {
      */
     @GetMapping
     public ResponseEntity<Page<PostResponse>> getPosts(
+            Authentication authentication,
             @RequestParam(name = "category", required = false) PostCategory category,
             @PageableDefault(size = 10) Pageable pageable) {
         
-        return ResponseEntity.ok(postService.getPosts(category, pageable));
+        Long memberId = authentication != null ? (Long) authentication.getPrincipal() : null;
+        return ResponseEntity.ok(postService.getPosts(memberId, category, pageable));
     }
 
     /**
      * 게시글 상세 조회 API
      */
     @GetMapping("/{id}")
-    public ResponseEntity<PostResponse> getPostDetail(@PathVariable("id") Long postId) {
-        return ResponseEntity.ok(postService.getPostDetail(postId));
+    public ResponseEntity<PostResponse> getPostDetail(
+            Authentication authentication,
+            @PathVariable("id") Long postId) {
+        Long memberId = authentication != null ? (Long) authentication.getPrincipal() : null;
+        return ResponseEntity.ok(postService.getPostDetail(memberId, postId));
     }
 
     /**
@@ -80,6 +86,32 @@ public class PostController {
         
         Long memberId = (Long) authentication.getPrincipal();
         postService.deletePost(memberId, postId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 게시글 좋아요 토글 API
+     */
+    @PostMapping("/{id}/like")
+    public ResponseEntity<Void> toggleLike(
+            Authentication authentication,
+            @PathVariable("id") Long postId) {
+        
+        Long memberId = (Long) authentication.getPrincipal();
+        postInteractionService.toggleLike(memberId, postId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 게시글 찜하기 토글 API
+     */
+    @PostMapping("/{id}/wish")
+    public ResponseEntity<Void> toggleWishlist(
+            Authentication authentication,
+            @PathVariable("id") Long postId) {
+        
+        Long memberId = (Long) authentication.getPrincipal();
+        postInteractionService.toggleWishlist(memberId, postId);
         return ResponseEntity.ok().build();
     }
 }

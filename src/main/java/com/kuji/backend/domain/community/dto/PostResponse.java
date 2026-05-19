@@ -18,9 +18,17 @@ public record PostResponse(
         String authorName,
         String authorEmail,
         List<String> imageUrls,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        long likeCount,
+        long commentCount,
+        boolean isLiked,
+        boolean isWished
 ) {
     public static PostResponse from(Post post) {
+        return of(post, 0, 0, false, false);
+    }
+
+    public static PostResponse of(Post post, long likeCount, long commentCount, boolean isLiked, boolean isWished) {
         List<String> urls = new ArrayList<>();
         if (post.getImage1() != null) urls.add(post.getImage1());
         if (post.getImage2() != null) urls.add(post.getImage2());
@@ -36,6 +44,10 @@ public record PostResponse(
                 .authorEmail(post.getMember().getEmail())
                 .imageUrls(urls)
                 .createdAt(post.getCreatedAt())
+                .likeCount(likeCount)
+                .commentCount(commentCount)
+                .isLiked(isLiked)
+                .isWished(isWished)
                 .build();
     }
 }

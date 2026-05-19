@@ -26,6 +26,9 @@ public class PostService {
     private final PostRepository postRepository;
     private final MemberRepository memberRepository;
     private final S3Service s3Service;
+    private final com.kuji.backend.domain.community.repository.CommentRepository commentRepository;
+    private final com.kuji.backend.domain.community.repository.PostLikeRepository postLikeRepository;
+    private final com.kuji.backend.domain.community.repository.PostWishlistRepository postWishlistRepository;
 
     /**
      * 게시글 작성
@@ -58,18 +61,18 @@ public class PostService {
      * 게시글 상세 조회 (조회수 증가 포함)
      */
     @Transactional
-    public PostResponse getPostDetail(Long postId) {
+    public PostResponse getPostDetail(Long memberId, Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
         
         post.increaseViewCount();
-        return PostResponse.from(post);
+        return mapToPostResponse(post, memberId);
     }
 
     /**
      * 게시글 목록 조회
      */
-    public Page<PostResponse> getPosts(PostCategory category, Pageable pageable) {
+    public Page<PostResponse> getPosts(Long memberId, PostCategory category, Pageable pageable) {
         Page<Post> posts;
         if (category == null) {
             posts = postRepository.findAllByOrderByCreatedAtDesc(pageable);
@@ -77,7 +80,24 @@ public class PostService {
             posts = postRepository.findAllByCategoryOrderByCreatedAtDesc(category, pageable);
         }
         
-        return posts.map(PostResponse::from);
+        return posts.map(post -> mapToPostResponse(post, memberId));
+    }
+
+    private PostResponse mapToPostResponse(Post post, Long memberId) {
+        long likeCount = postLikeRepository.countByPost(post);
+        long commentCount = commentRepository.countByPost(post);
+        boolean isLiked = false;
+        boolean isWished = false;
+
+        if (memberId != null) {
+            Member member = memberRepository.findById(memberId).orElse(null);
+            if (member != null) {
+                isLiked = postLikeRepository.existsByPostAndMember(post, member);
+                isWished = postWishlistRepository.existsByPostAndMember(post, member);
+            }
+        }
+
+        return PostResponse.of(post, likeCount, commentCount, isLiked, isWished);
     }
 
     /**
