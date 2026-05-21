@@ -60,6 +60,9 @@ dependencies {
 
     // === 5. AWS S3 (이미지 업로드) ===
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.2.1'
+
+    // === 6. Firebase Admin SDK (FCM 알림 발송용) ===
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
 }
 // --- Querydsl Q-Class 생성 설정 ---
 def querydslDir = "$buildDir/generated/querydsl"
@@ -74,4 +77,13 @@ clean.doLast {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// UTF-8 인코딩 설정 (한글 로그 출력)
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+bootRun {
+    jvmArgs = ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8']
 }

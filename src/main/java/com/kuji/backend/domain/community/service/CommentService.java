@@ -8,6 +8,8 @@ import com.kuji.backend.domain.community.repository.CommentRepository;
 import com.kuji.backend.domain.community.repository.PostRepository;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
+import com.kuji.backend.domain.notification.service.NotificationService;
+import com.kuji.backend.domain.notification.entity.NotificationType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public void createComment(Long memberId, Long postId, CommentRequest request) {
@@ -38,6 +41,19 @@ public class CommentService {
                 .build();
 
         commentRepository.save(comment);
+
+        // 본인 게시글이 아닌 경우에만 푸시 알림 발송
+        if (!post.getMember().getId().equals(memberId)) {
+            String title = "새로운 댓글이 달렸습니다!";
+            String body = member.getNickname() + "님이 댓글을 남겼습니다: " + comment.getContent();
+            notificationService.sendNotification(
+                    post.getMember(),
+                    title,
+                    body,
+                    NotificationType.COMMENT,
+                    String.valueOf(post.getId())
+            );
+        }
     }
 
     public List<CommentResponse> getCommentsByPost(Long postId) {

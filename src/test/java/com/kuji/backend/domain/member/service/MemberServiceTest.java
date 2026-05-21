@@ -34,6 +34,10 @@ class MemberServiceTest {
                 "password123!",
                 "쿠지뉴비",
                 LocalDate.of(1995, 5, 5),
+                null,   // role (null이면 서비스에서 USER로 기본 설정됨)
+                null,   // businessNumber
+                null,   // companyName
+                null,   // ceoName
                 true, true, false);
 
         // when: 서비스의 가입 메서드 실행
@@ -53,13 +57,17 @@ class MemberServiceTest {
         // given: 1. 먼저 DB에 기존 회원을 한 명 가입시켜 둡니다.
         SignUpRequest request1 = new SignUpRequest(
                 "duplicate@kuji.com", "pass1", "기존유저",
-                LocalDate.of(1990, 1, 1), true, true, false);
+                LocalDate.of(1990, 1, 1),
+                null, null, null, null,
+                true, true, false);
         memberService.signUp(request1, SocialType.LOCAL, null);
 
         // given: 2. 똑같은 이메일을 쓰는 뻔뻔한(?) 두 번째 가입 요청 준비
         SignUpRequest request2 = new SignUpRequest(
                 "duplicate@kuji.com", "pass2", "뻔뻔한유저",
-                LocalDate.of(1999, 9, 9), true, true, false);
+                LocalDate.of(1999, 9, 9),
+                null, null, null, null,
+                true, true, false);
 
         // when & then: 두 번째 가입을 시도했을 때, 우리가 의도한 에러가 팡! 터져야 성공
         // 💡 실무 팁: 에러가 터지는 걸 테스트할 때는 assertThatThrownBy를 씁니다.
