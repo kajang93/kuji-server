@@ -7,9 +7,11 @@ import com.kuji.backend.domain.notification.dto.NotificationResponse;
 import com.kuji.backend.domain.notification.dto.TokenRequest;
 import com.kuji.backend.domain.notification.entity.DeviceToken;
 import com.kuji.backend.domain.notification.entity.Notification;
+import com.kuji.backend.domain.notification.entity.NotificationSetting;
 import com.kuji.backend.domain.notification.entity.NotificationType;
 import com.kuji.backend.domain.notification.repository.DeviceTokenRepository;
 import com.kuji.backend.domain.notification.repository.NotificationRepository;
+import com.kuji.backend.domain.notification.repository.NotificationSettingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +32,7 @@ public class NotificationService {
 
     private final DeviceTokenRepository deviceTokenRepository;
     private final NotificationRepository notificationRepository;
+    private final NotificationSettingRepository settingRepository;
     private final MemberRepository memberRepository;
 
     /**
@@ -61,10 +65,23 @@ public class NotificationService {
     }
 
     /**
-     * 알림 발송 (FCM + DB 저장)
+     * 알림 발송 (FCM + DB 저장) - subType 없는 단순 발송
      */
     public void sendNotification(Member receiver, String title, String body, NotificationType type, String targetId) {
-        // 1. DB에 알림 저장
+        sendNotification(receiver, title, body, type, null, targetId);
+    }
+
+    /**
+     * 알림 발송 (FCM + DB 저장) - subType 포함 (수신 설정 필터링)
+     */
+    public void sendNotification(Member receiver, String title, String body, NotificationType type, String subType, String targetId) {
+        // 1. 수신 설정 필터링 (전체 푸시 or 세부 항목 OFF 시 스킵)
+        if (!isNotificationAllowed(receiver, type, subType)) {
+            log.info("[알림 발송 스킵] 수신 설정 OFF. memberId={}, type={}, subType={}", receiver.getId(), type, subType);
+            return;
+        }
+
+        // 2. DB에 인앱 알림 저장
         Notification notification = Notification.builder()
                 .member(receiver)
                 .title(title)
@@ -74,7 +91,7 @@ public class NotificationService {
                 .build();
         notificationRepository.save(notification);
 
-        // 2. 해당 유저의 유효한 모든 디바이스 토큰 조회
+        // 3. 해당 유저의 유효한 모든 디바이스 토큰 조회
         List<DeviceToken> deviceTokens = deviceTokenRepository.findAllByMember(receiver);
         if (deviceTokens.isEmpty()) {
             log.info("발송 가능한 기기 토큰이 없습니다. memberId={}", receiver.getId());
@@ -85,25 +102,24 @@ public class NotificationService {
                 .map(DeviceToken::getToken)
                 .collect(Collectors.toList());
 
-        // 3. FCM 메시지 구성
+        // 4. FCM 메시지 구성
         MulticastMessage message = MulticastMessage.builder()
                 .putData("title", title)
                 .putData("body", body)
                 .putData("type", type.name())
                 .putData("targetId", targetId != null ? targetId : "")
                 .addAllTokens(tokens)
-                // iOS 등 백그라운드 처리를 위한 Notification 객체 추가 (선택사항)
                 .setNotification(com.google.firebase.messaging.Notification.builder()
                         .setTitle(title)
                         .setBody(body)
                         .build())
                 .build();
 
-        // 4. FCM 발송
+        // 5. FCM 발송
         try {
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
-            
-            // 5. 유효하지 않은 토큰(앱 삭제 등) 자동 정리
+
+            // 6. 유효하지 않은 토큰(앱 삭제 등) 자동 정리
             if (response.getFailureCount() > 0) {
                 List<SendResponse> responses = response.getResponses();
                 List<String> failedTokens = new ArrayList<>();
@@ -121,6 +137,48 @@ public class NotificationService {
         } catch (FirebaseMessagingException e) {
             log.error("FCM 푸시 알림 발송 실패: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 수신 설정 허용 여부 판별
+     * - 설정이 없는 신규 유저는 기본 허용(true) 처리
+     */
+    private boolean isNotificationAllowed(Member receiver, NotificationType type, String subType) {
+        NotificationSetting setting = settingRepository.findByMember(receiver).orElse(null);
+
+        // 설정 없으면 기본 허용
+        if (setting == null) return true;
+
+        // 전체 푸시 OFF
+        if (!setting.isPushEnabled()) return false;
+
+        // 야간 푸시 체크 (오후 10시 ~ 오전 8시)
+        if (!setting.isNightPush()) {
+            LocalTime now = LocalTime.now();
+            if (now.isAfter(LocalTime.of(22, 0)) || now.isBefore(LocalTime.of(8, 0))) {
+                // 야간 시간대에 마케팅성 알림은 차단
+                if (type == NotificationType.SYSTEM && subType != null &&
+                        (subType.equals("WISHLIST_OPEN") || subType.equals("RESTOCK") || subType.equals("CLOSING_SOON"))) {
+                    return false;
+                }
+            }
+        }
+
+        // 세부 타입별 허용 체크
+        if (type == NotificationType.SHIPPING) {
+            return setting.isKakaoDelivery();
+        }
+        if (type == NotificationType.COMMENT && "INQUIRY".equals(subType)) {
+            return setting.isKakaoInquiry();
+        }
+        if (type == NotificationType.SYSTEM) {
+            if ("WINNING".equals(subType)) return setting.isKakaoWinning();
+            if ("WISHLIST_OPEN".equals(subType)) return setting.isMarketingOpen();
+            if ("RESTOCK".equals(subType)) return setting.isMarketingRestock();
+            if ("CLOSING_SOON".equals(subType)) return setting.isMarketingEvent();
+        }
+
+        return true;
     }
 
     /**

@@ -4,6 +4,8 @@ import com.kuji.backend.domain.kuji.entity.DrawHistory;
 import com.kuji.backend.domain.kuji.repository.DrawHistoryRepository;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
+import com.kuji.backend.domain.notification.entity.NotificationType;
+import com.kuji.backend.domain.notification.service.NotificationService;
 import com.kuji.backend.domain.shipping.dto.ShippingRequest;
 import com.kuji.backend.domain.shipping.dto.ShippingResponse;
 import com.kuji.backend.domain.shipping.entity.Shipping;
@@ -22,6 +24,7 @@ public class ShippingService {
     private final ShippingRepository shippingRepository;
     private final DrawHistoryRepository drawHistoryRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     /**
      * 배송 신청 처리
@@ -66,6 +69,16 @@ public class ShippingService {
             history.setShipping(savedShipping);
         }
 
+        // 배송 신청 완료 알림 발송
+        notificationService.sendNotification(
+                member,
+                "배송 신청 완료",
+                "신청하신 상품의 배송 준비가 시작됩니다.",
+                NotificationType.SHIPPING,
+                "DELIVERY_REQUEST",
+                savedShipping.getId().toString()
+        );
+
         return savedShipping.getId();
     }
 
@@ -97,8 +110,19 @@ public class ShippingService {
     public void updateTrackingInfo(Long shippingId, String courierName, String trackingNumber) {
         Shipping shipping = shippingRepository.findById(shippingId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송 정보입니다."));
-        
+
         shipping.startShipping(courierName, trackingNumber);
+
+        // 배송 출발 알림 발송
+        notificationService.sendNotification(
+                shipping.getMember(),
+                "배송 시작 안내",
+                String.format("[%s] 배송이 시작되었습니다. 운송장: %s (%s)",
+                        shipping.getRecipientName(), trackingNumber, courierName),
+                NotificationType.SHIPPING,
+                "DELIVERY_START",
+                shippingId.toString()
+        );
     }
 
     private ShippingResponse convertToResponse(Shipping shipping) {

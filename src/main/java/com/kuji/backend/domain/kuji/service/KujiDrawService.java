@@ -17,6 +17,8 @@ import com.kuji.backend.domain.member.entity.PointHistory;
 import com.kuji.backend.domain.member.enums.PointType;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
+import com.kuji.backend.domain.notification.entity.NotificationType;
+import com.kuji.backend.domain.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ public class KujiDrawService {
     private final MemberRepository memberRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final KujiItemService kujiItemService;
+    private final NotificationService notificationService;
 
     /**
      * 무작위 뽑기 실행 (비관적 락 적용)
@@ -133,6 +136,22 @@ public class KujiDrawService {
         int finalTotalRemain = allItems.stream()
                 .mapToInt(KujiItem::getRemainQty)
                 .sum();
+
+        // 6. 당첨 알림 발송
+        if (!winningItems.isEmpty()) {
+            String mainPrizeName = winningItems.get(0).getName();
+            String winBody = winningItems.size() > 1
+                    ? String.format("축하합니다! [%s] 외 %d건의 상품에 당첨되셨습니다.", mainPrizeName, winningItems.size() - 1)
+                    : String.format("축하합니다! [%s] 상품에 당첨되셨습니다.", mainPrizeName);
+            notificationService.sendNotification(
+                    member,
+                    "개 당첨을 축하합니다!",
+                    winBody,
+                    NotificationType.SYSTEM,
+                    "WINNING",
+                    boardId.toString()
+            );
+        }
 
         return KujiDrawResponse.builder()
                 .results(resultDtos)

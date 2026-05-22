@@ -6,6 +6,8 @@ import com.kuji.backend.domain.inquiry.entity.Inquiry;
 import com.kuji.backend.domain.inquiry.repository.InquiryRepository;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
+import com.kuji.backend.domain.notification.entity.NotificationType;
+import com.kuji.backend.domain.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class InquiryService {
 
     private final InquiryRepository inquiryRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     /**
      * 문의 등록
@@ -85,5 +88,15 @@ public class InquiryService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 문의입니다."));
 
         inquiry.answer(answerContent);
+
+        // 문의 답변 알림 발송
+        notificationService.sendNotification(
+                inquiry.getMember(),
+                "1:1 문의 답변 등록",
+                String.format("작성하신 '%s' 문의에 답변이 완료되었습니다.", inquiry.getTitle()),
+                NotificationType.COMMENT,
+                "INQUIRY",
+                id.toString()
+        );
     }
 }
