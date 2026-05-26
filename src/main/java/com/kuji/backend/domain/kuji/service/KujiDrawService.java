@@ -19,6 +19,7 @@ import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.notification.entity.NotificationType;
 import com.kuji.backend.domain.notification.service.NotificationService;
+import com.kuji.backend.domain.notification.service.WishlistNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ public class KujiDrawService {
     private final PointHistoryRepository pointHistoryRepository;
     private final KujiItemService kujiItemService;
     private final NotificationService notificationService;
+    private final WishlistNotificationService wishlistNotificationService;
 
     /**
      * 무작위 뽑기 실행 (비관적 락 적용)
@@ -153,6 +155,12 @@ public class KujiDrawService {
             );
         }
 
+        // 7. 마감임박 알림 발송 트리거 (잔여 수량이 5개 이하로 떨어졌을 때, 그리고 당첨 전에는 5개 초과였을 때 딱 한 번만 발송)
+        int initialTotalRemain = finalTotalRemain + count;
+        if (initialTotalRemain > 5 && finalTotalRemain <= 5 && finalTotalRemain > 0) {
+            wishlistNotificationService.notifyClosingSoon(board, finalTotalRemain);
+        }
+
         return KujiDrawResponse.builder()
                 .results(resultDtos)
                 .totalRemaining(finalTotalRemain)
@@ -175,6 +183,7 @@ public class KujiDrawService {
                                 : h.getKujiItem().getKujiItemImages().get(0).getImageUrl())
                         .status(h.getStatus())
                         .createdAt(h.getCreatedAt())
+                        .shippingId(h.getShipping() != null ? h.getShipping().getId() : null)
                         .build())
                 .toList();
     }

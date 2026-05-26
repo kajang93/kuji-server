@@ -10,6 +10,7 @@ import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
 import com.kuji.backend.domain.kuji.repository.WishlistRepository; // 추가
 import com.kuji.backend.domain.kuji.entity.KujiItem;
+import com.kuji.backend.domain.notification.service.WishlistNotificationService;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.global.service.FileService;
@@ -32,6 +33,7 @@ public class KujiBoardService {
     private final MemberRepository memberRepository;
     private final WishlistRepository wishlistRepository; // 추가
     private final FileService fileService;
+    private final WishlistNotificationService wishlistNotificationService;
 
     /**
      * 쿠지 판 생성
@@ -79,7 +81,16 @@ public class KujiBoardService {
     public void updateBoardStatus(Long boardId, com.kuji.backend.domain.kuji.enums.BoardStatus status) {
         KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        com.kuji.backend.domain.kuji.enums.BoardStatus oldStatus = kujiBoard.getStatus();
         kujiBoard.updateStatus(status);
+
+        if (status == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE) {
+            if (oldStatus == com.kuji.backend.domain.kuji.enums.BoardStatus.FINISHED) {
+                wishlistNotificationService.notifyRestock(kujiBoard);
+            } else if (oldStatus == com.kuji.backend.domain.kuji.enums.BoardStatus.PREPARING) {
+                wishlistNotificationService.notifyWishlistOpen(kujiBoard);
+            }
+        }
     }
 
     /**
