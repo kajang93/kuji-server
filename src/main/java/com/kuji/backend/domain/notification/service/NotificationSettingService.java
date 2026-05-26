@@ -44,14 +44,14 @@ public class NotificationSettingService {
                 ));
 
         setting.updateSettings(
-                request.pushEnabled(),
-                request.kakaoWinning(),
-                request.kakaoDelivery(),
-                request.kakaoInquiry(),
-                request.marketingOpen(),
-                request.marketingRestock(),
-                request.marketingEvent(),
-                request.nightPush()
+                request.pushEnabled() != null ? request.pushEnabled() : setting.isPushEnabled(),
+                request.kakaoWinning() != null ? request.kakaoWinning() : setting.isKakaoWinning(),
+                request.kakaoDelivery() != null ? request.kakaoDelivery() : setting.isKakaoDelivery(),
+                request.kakaoInquiry() != null ? request.kakaoInquiry() : setting.isKakaoInquiry(),
+                request.marketingOpen() != null ? request.marketingOpen() : setting.isMarketingOpen(),
+                request.marketingRestock() != null ? request.marketingRestock() : setting.isMarketingRestock(),
+                request.marketingEvent() != null ? request.marketingEvent() : setting.isMarketingEvent(),
+                request.nightPush() != null ? request.nightPush() : setting.isNightPush()
         );
     }
 }
