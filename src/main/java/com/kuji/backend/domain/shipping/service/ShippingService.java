@@ -9,6 +9,7 @@ import com.kuji.backend.domain.notification.service.NotificationService;
 import com.kuji.backend.domain.shipping.dto.ShippingRequest;
 import com.kuji.backend.domain.shipping.dto.ShippingResponse;
 import com.kuji.backend.domain.shipping.entity.Shipping;
+import com.kuji.backend.domain.shipping.enums.ShippingStatus;
 import com.kuji.backend.domain.shipping.repository.ShippingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -104,6 +105,16 @@ public class ShippingService {
     }
 
     /**
+     * 사업자용 배송 목록 조회
+     */
+    public List<ShippingResponse> getSellerShippingList(Long sellerId) {
+        List<Shipping> shippings = shippingRepository.findAllBySellerId(sellerId);
+        return shippings.stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    /**
      * 운송장 번호 등록 및 배송 시작
      */
     @Transactional
@@ -113,6 +124,12 @@ public class ShippingService {
 
         shipping.startShipping(courierName, trackingNumber);
 
+        // 연관된 모든 당첨 이력의 상태도 SHIPPING(배송 중)으로 업데이트
+        List<DrawHistory> drawHistories = drawHistoryRepository.findAllByShipping(shipping);
+        for (DrawHistory history : drawHistories) {
+            history.startShipping();
+        }
+
         // 배송 출발 알림 발송
         notificationService.sendNotification(
                 shipping.getMember(),
@@ -121,6 +138,38 @@ public class ShippingService {
                         shipping.getRecipientName(), trackingNumber, courierName),
                 NotificationType.SHIPPING,
                 "DELIVERY_START",
+                shippingId.toString()
+        );
+    }
+
+    /**
+     * 배송 완료 처리
+     */
+    @Transactional
+    public void completeShipping(Long shippingId) {
+        Shipping shipping = shippingRepository.findById(shippingId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송 정보입니다."));
+
+        if (shipping.getTrackingNumber() == null || shipping.getTrackingNumber().trim().isEmpty()) {
+            throw new IllegalStateException("운송장 번호가 등록되지 않은 배송 건은 완료 처리할 수 없습니다.");
+        }
+
+        shipping.updateStatus(ShippingStatus.DELIVERED);
+
+        // 연관된 모든 당첨 이력의 상태도 DELIVERED(수령 완료)로 업데이트
+        List<DrawHistory> drawHistories = drawHistoryRepository.findAllByShipping(shipping);
+        for (DrawHistory history : drawHistories) {
+            history.completeDelivery();
+        }
+
+        // 배송 완료 알림 발송
+        notificationService.sendNotification(
+                shipping.getMember(),
+                "배송 완료 안내",
+                String.format("[%s] 상품 배송이 완료되었습니다. 이용해 주셔서 감사합니다.",
+                        shipping.getRecipientName()),
+                NotificationType.SHIPPING,
+                "DELIVERY_COMPLETE",
                 shippingId.toString()
         );
     }

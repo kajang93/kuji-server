@@ -51,6 +51,17 @@ public class ShippingController {
     }
 
     /**
+     * 사업자용 배송 목록 조회 API
+     */
+    @GetMapping("/seller")
+    public ResponseEntity<List<ShippingResponse>> getSellerShippings(
+            @AuthenticationPrincipal Long memberId) {
+        
+        List<ShippingResponse> responses = shippingService.getSellerShippingList(memberId);
+        return ResponseEntity.ok(responses);
+    }
+
+    /**
      * 운송장 번호 등록 API (관리자용)
      */
     @PatchMapping("/{id}/tracking")
@@ -59,6 +70,15 @@ public class ShippingController {
             @RequestBody TrackingRequest request) {
         
         shippingService.updateTrackingInfo(id, request.courierName(), request.trackingNumber());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 배송 완료 처리 API
+     */
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<Void> completeShipping(@PathVariable Long id) {
+        shippingService.completeShipping(id);
         return ResponseEntity.ok().build();
     }
 }

@@ -63,4 +63,12 @@ public class DrawHistory {
         this.shipping = shipping;
         this.status = DrawStatus.SHIPPING_REQUESTED; // 배송 요청 상태로 변경
     }
+
+    public void startShipping() {
+        this.status = DrawStatus.SHIPPING;
+    }
+
+    public void completeDelivery() {
+        this.status = DrawStatus.DELIVERED;
+    }
 }
