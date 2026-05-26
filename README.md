@@ -55,8 +55,8 @@
 | GET | `/api/shipping/me` | 나의 배송 현황 및 이력 조회 |
 | GET | `/api/shipping/admin` | (관리자) 전체 배송 요청 리스트 조회 |
 | GET | `/api/shipping/seller` | (사업자) 소유한 쿠지 판의 배송 요청 리스트 조회 |
-| PATCH | `/api/shipping/{id}/tracking` | (관리자/사업자) 운송장 등록 및 배송 시작 처리 |
-| PATCH | `/api/shipping/{id}/complete` | (관리자/사업자) 배송 완료 처리 |
+| PATCH | `/api/shipping/{id}/tracking` | (사업자) 운송장 등록 및 배송 시작 처리 (DrawHistory 상태도 SHIPPING으로 동기화) |
+| PATCH | `/api/shipping/{id}/complete` | (구매자) 수령 및 배송 확정 처리 (운송장 등록 필수 유효성 검사 적용) |
 
 ### 🔔 알림 및 수신 설정 관련
 | Method | Endpoint | Description |
