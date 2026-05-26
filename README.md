@@ -11,7 +11,7 @@
 | 항목 | 기술 | 상세 내용 |
 |------|------|------|
 | **Framework** | Spring Boot 3.x | 효율적인 REST API 및 의존성 관리 |
-| **Language** | Java 17 | 최신 자바 문법 및 안정적인 런타임 |
+| **Language** | Java 25 | 최신 자바 문법 및 안정적인 런타임 |
 | **Database** | PostgreSQL | 관계형 데이터 설계 및 JSONB/Enum 지원 |
 | **Security** | Spring Security | JWT 기반의 무상태(Stateless) 인증 시스템 |
 | **ORM** | Spring Data JPA | 객체 지향적 DB 조작 및 성능 최적화 |
@@ -54,7 +54,20 @@
 | POST | `/api/shipping` | 보관함 상품 선택 및 배송 신청 |
 | GET | `/api/shipping/me` | 나의 배송 현황 및 이력 조회 |
 | GET | `/api/shipping/admin` | (관리자) 전체 배송 요청 리스트 조회 |
-| PATCH | `/api/shipping/{id}/tracking` | (관리자) 운송장 등록 및 배송 시작 처리 |
+| GET | `/api/shipping/seller` | (사업자) 소유한 쿠지 판의 배송 요청 리스트 조회 |
+| PATCH | `/api/shipping/{id}/tracking` | (관리자/사업자) 운송장 등록 및 배송 시작 처리 |
+| PATCH | `/api/shipping/{id}/complete` | (관리자/사업자) 배송 완료 처리 |
+
+### 🔔 알림 및 수신 설정 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| POST | `/api/notifications/token` | FCM 기기 토큰 등록 및 갱신 |
+| DELETE | `/api/notifications/token/{deviceId}` | FCM 기기 토큰 삭제 (로그아웃/해제) |
+| GET | `/api/notifications` | 내 인앱 알림 목록 조회 (페이징) |
+| PATCH | `/api/notifications/{id}/read` | 특정 알림 읽음 처리 |
+| PATCH | `/api/notifications/read-all` | 모든 알림 읽음 처리 |
+| GET | `/api/notifications/settings` | 내 알림 수신 설정 조회 |
+| PATCH | `/api/notifications/settings` | 알림 수신 설정 수정 |
 
 ---
 
@@ -70,18 +83,20 @@
 - [x] 보관함(DrawHistory) 및 배송(Shipping) 시스템 구축
 - [x] 카카오 소셜 로그인 연동 완료
 
-### 🏃 Phase 3: 커뮤니티 및 문의 시스템 (진행 중)
+### ✅ Phase 3: 커뮤니티 및 문의 시스템 (완료 ✨)
 - [x] **커뮤니티(게시판)**: 당첨 인증, 자유 게시판 (CRUD 완료)
 - [x] **실시간 티커**: 메인 페이지 당첨 내역 흐름 알림 API 완료
 - [x] **1:1 문의 시스템**: 등록, 상세 조회 및 관리자 답변 기능 완료
 - [x] **찜 목록(Wishlist)**: 쿠지판 찜하기 토글 및 나의 찜 목록 조회
 - [x] **게시판 고도화**: AWS S3 연동을 통한 사진 업로드
-- [ ] **게시판 상호작용**: 게시글 좋아요, 찜하기, 댓글 달기 기능 구현
+- [x] **게시판 상호작용**: 게시글 좋아요, 찜하기, 댓글 달기 기능 구현
 
-### 🏗️ Phase 4: 배송 및 결제 시스템
+### 🏃 Phase 4: 배송 및 알림 시스템 고도화 (진행 중)
+- [x] **실시간 알림**: FCM(Firebase Cloud Messaging) 연동 및 배송 단계/당첨/댓글/문의 답변 푸시 발송 트리거 연동 완료
+- [x] **사업자 전용 기능**: 사업자용 배송 관리 대시보드 API (목록 조회 및 배송 시작/완료 처리) 완료
+- [x] **알림 수신 설정**: 알림 전체 및 유형별 세부 차단 설정, 야간 푸시 수신 제한(22:00~08:00) 로직 구현 완료
 - [ ] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
 - [ ] **결제 시스템**: 토스페이먼츠 / 카카오페이 API 연동 (포인트 충전)
-- [ ] **실시간 알림**: FCM을 통한 배송 시작 및 문의 답변 알림
 - [ ] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
 
 ---
