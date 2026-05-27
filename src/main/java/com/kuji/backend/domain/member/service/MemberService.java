@@ -3,6 +3,7 @@ package com.kuji.backend.domain.member.service;
 import com.kuji.backend.domain.member.dto.LoginRequest;
 import com.kuji.backend.domain.member.dto.MemberProfileResponse;
 import com.kuji.backend.domain.member.dto.SignUpRequest;
+import com.kuji.backend.domain.member.dto.UpdateProfileRequest;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.enums.SocialType;
 import com.kuji.backend.domain.member.repository.MemberRepository;
@@ -10,10 +11,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.multipart.MultipartFile;
 import com.kuji.backend.global.jwt.JwtUtil;
 import com.kuji.backend.domain.member.enums.RoleType;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
+import com.kuji.backend.global.service.FileService;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class MemberService {
     private final JwtUtil jwtUtil;
     private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
     private final BusinessInfoRepository businessInfoRepository;
+    private final FileService fileService;
 
     /**
      * 내 정보 조회
@@ -32,6 +36,24 @@ public class MemberService {
     public MemberProfileResponse getMyProfile(Long memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 회원을 찾을 수 없습니다. (ID: " + memberId + ")"));
+        return MemberProfileResponse.from(member);
+    }
+
+    /**
+     * 내 프로필 수정 (닉네임 + 프로필 이미지)
+     */
+    @Transactional
+    public MemberProfileResponse updateProfile(Long memberId, UpdateProfileRequest request, MultipartFile profileImage) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 회원을 찾을 수 없습니다."));
+
+        // 이미지 파일이 있으면 S3/로컬 저장 후 URL 반환
+        String imageUrl = null;
+        if (profileImage != null && !profileImage.isEmpty()) {
+            imageUrl = fileService.saveFile("profiles", profileImage);
+        }
+
+        member.updateProfile(request.nickname(), imageUrl);
         return MemberProfileResponse.from(member);
     }
 

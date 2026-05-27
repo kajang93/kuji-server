@@ -112,6 +112,15 @@ public class Member extends BaseTimeEntity {
         this.point -= amount;
     }
 
+    public void updateProfile(String nickname, String profileImageUrl) {
+        if (nickname != null && !nickname.isBlank()) {
+            this.nickname = nickname;
+        }
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl;
+        }
+    }
+
     // 💡 사업자 정보를 등록하는 연관관계 편의 메서드
     public void registerBusinessInfo(BusinessInfo businessInfo) {
         this.businessInfo = businessInfo;

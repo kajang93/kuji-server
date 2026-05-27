@@ -51,4 +51,23 @@ public class MemberController {
         MemberProfileResponse profile = memberService.getMyProfile(memberId);
         return ResponseEntity.ok(profile);
     }
+
+    /**
+     * 내 정보 수정 API (닉네임, 프로필 이미지 변경)
+     * Multipart 요청이므로 @RequestPart를 사용합니다.
+     */
+    @PatchMapping("/me")
+    public ResponseEntity<MemberProfileResponse> updateMyProfile(
+            @AuthenticationPrincipal Long memberId,
+            @RequestPart(value = "request", required = false) UpdateProfileRequest request,
+            @RequestPart(value = "profileImage", required = false) org.springframework.web.multipart.MultipartFile profileImage) {
+        
+        // request가 null로 올 수 있으므로 빈 객체로 초기화 방어
+        if (request == null) {
+            request = new UpdateProfileRequest(null);
+        }
+        
+        MemberProfileResponse updatedProfile = memberService.updateProfile(memberId, request, profileImage);
+        return ResponseEntity.ok(updatedProfile);
+    }
 }
