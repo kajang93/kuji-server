@@ -75,13 +75,7 @@ public class NotificationService {
      * 알림 발송 (FCM + DB 저장) - subType 포함 (수신 설정 필터링)
      */
     public void sendNotification(Member receiver, String title, String body, NotificationType type, String subType, String targetId) {
-        // 1. 수신 설정 필터링 (전체 푸시 or 세부 항목 OFF 시 스킵)
-        if (!isNotificationAllowed(receiver, type, subType)) {
-            log.info("[알림 발송 스킵] 수신 설정 OFF. memberId={}, type={}, subType={}", receiver.getId(), type, subType);
-            return;
-        }
-
-        // 2. DB에 인앱 알림 저장
+        // 1. DB에 인앱 알림(앱 내부 종 모양 아이콘 리스트)은 무조건 저장합니다!
         Notification notification = Notification.builder()
                 .member(receiver)
                 .title(title)
@@ -90,6 +84,12 @@ public class NotificationService {
                 .targetId(targetId)
                 .build();
         notificationRepository.save(notification);
+
+        // 2. 수신 설정 필터링 (스마트폰 외부 푸시/카톡 알림을 꺼둔 경우 여기서 스킵)
+        if (!isNotificationAllowed(receiver, type, subType)) {
+            log.info("[외부 푸시 발송 스킵] 수신 설정 OFF. DB에만 저장됨. memberId={}, type={}, subType={}", receiver.getId(), type, subType);
+            return;
+        }
 
         // 3. 해당 유저의 유효한 모든 디바이스 토큰 조회
         List<DeviceToken> deviceTokens = deviceTokenRepository.findAllByMember(receiver);

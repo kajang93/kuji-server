@@ -3,6 +3,8 @@ package com.kuji.backend.domain.kuji.controller;
 import com.kuji.backend.domain.kuji.dto.DrawHistoryResponse;
 import com.kuji.backend.domain.kuji.dto.KujiDrawRequest;
 import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
+import com.kuji.backend.domain.kuji.dto.PreparePaymentRequest;
+import com.kuji.backend.domain.kuji.dto.PreparePaymentResponse;
 import com.kuji.backend.domain.kuji.dto.RecentDrawResponse;
 import com.kuji.backend.domain.kuji.service.KujiDrawService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,19 @@ public class KujiDrawController {
     private final KujiDrawService kujiDrawService;
 
     /**
+     * PG 결제 준비 (세션 생성 및 orderId 발급)
+     */
+    @PostMapping("/{id}/payment/prepare")
+    public ResponseEntity<PreparePaymentResponse> preparePayment(
+            Authentication authentication,
+            @PathVariable("id") Long boardId,
+            @RequestBody PreparePaymentRequest request) {
+        
+        Long memberId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(kujiDrawService.preparePayment(memberId, boardId, request));
+    }
+
+    /**
      * 쿠지 무작위 뽑기 실행
      */
     @PostMapping("/{id}/draw")
@@ -29,9 +44,8 @@ public class KujiDrawController {
             @RequestBody KujiDrawRequest request) {
         
         Long memberId = (Long) authentication.getPrincipal();
-        int count = (request.getCount() != null) ? request.getCount() : 1;
         
-        return ResponseEntity.ok(kujiDrawService.draw(memberId, boardId, count));
+        return ResponseEntity.ok(kujiDrawService.draw(memberId, boardId, request));
     }
 
     /**

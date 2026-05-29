@@ -1,8 +1,11 @@
 package com.kuji.backend.domain.kuji.service;
 
 import com.kuji.backend.domain.kuji.dto.DrawHistoryResponse;
+import com.kuji.backend.domain.kuji.dto.KujiDrawRequest;
 import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
 import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
+import com.kuji.backend.domain.kuji.dto.PreparePaymentRequest;
+import com.kuji.backend.domain.kuji.dto.PreparePaymentResponse;
 import com.kuji.backend.domain.kuji.dto.RecentDrawResponse;
 import com.kuji.backend.domain.kuji.entity.KujiBoard;
 import com.kuji.backend.domain.kuji.entity.KujiItem;
@@ -15,6 +18,14 @@ import com.kuji.backend.domain.kuji.repository.DrawHistoryRepository;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.entity.PointHistory;
 import com.kuji.backend.domain.member.enums.PointType;
+import com.kuji.backend.domain.payment.entity.Payment;
+import com.kuji.backend.domain.payment.entity.PaymentSession;
+import com.kuji.backend.domain.payment.enums.PaymentStatus;
+import com.kuji.backend.domain.payment.enums.PaymentType;
+import com.kuji.backend.domain.payment.enums.SessionStatus;
+import com.kuji.backend.domain.payment.repository.PaymentRepository;
+import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
+import com.kuji.backend.global.infra.toss.TossPaymentClient;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.notification.entity.NotificationType;
@@ -24,9 +35,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,12 +56,48 @@ public class KujiDrawService {
     private final KujiItemService kujiItemService;
     private final NotificationService notificationService;
     private final WishlistNotificationService wishlistNotificationService;
+    private final TossPaymentClient tossPaymentClient;
+    private final PaymentRepository paymentRepository;
+    private final PaymentSessionRepository paymentSessionRepository;
 
     /**
-     * 무작위 뽑기 실행 (비관적 락 적용)
+     * PG 결제 준비 (세션 생성)
      */
     @Transactional
-    public KujiDrawResponse draw(Long memberId, Long boardId, int count) {
+    public PreparePaymentResponse preparePayment(Long memberId, Long boardId, PreparePaymentRequest request) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+        
+        KujiBoard board = kujiBoardRepository.findById(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+                
+        int count = (request.getCount() != null) ? request.getCount() : 1;
+        int amount = (int) (board.getPricePerDraw() * count);
+        String orderId = "KUJI-" + UUID.randomUUID().toString();
+        
+        PaymentSession session = PaymentSession.builder()
+                .member(member)
+                .board(board)
+                .count(count)
+                .amount(amount)
+                .orderId(orderId)
+                .status(SessionStatus.PENDING)
+                .metadata(request.getMetadata())
+                .expiresAt(LocalDateTime.now().plusMinutes(30))
+                .build();
+                
+        paymentSessionRepository.save(session);
+        
+        return new PreparePaymentResponse(orderId, amount, board.getTitle());
+    }
+
+    /**
+     * 무작위 뽑기 실행 (결제 연동 및 비관적 락 적용)
+     */
+    @Transactional
+    public KujiDrawResponse draw(Long memberId, Long boardId, KujiDrawRequest request) {
+        int count = (request.getCount() != null) ? request.getCount() : 1;
+        
         // 1. 쿠지 판 조회 및 비관적 락 적용
         KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
@@ -57,6 +108,56 @@ public class KujiDrawService {
 
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+
+        // 1-1. 결제 처리 분기
+        int totalRequiredAmount = (int) (board.getPricePerDraw() * count);
+        Payment savedPayment = null;
+
+        if (request.getPaymentType() == PaymentType.POINT) {
+            // 포인트 결제: 잔여 포인트 차감 시도
+            member.deductPoint(totalRequiredAmount); 
+        } else if (request.getPaymentType() == PaymentType.PG) {
+            // PG 결제: 넘어온 orderId로 결제 세션 검증
+            if (request.getOrderId() == null) {
+                throw new IllegalArgumentException("주문 번호(orderId)가 필요합니다.");
+            }
+            
+            PaymentSession session = paymentSessionRepository.findByOrderId(request.getOrderId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 결제 세션입니다."));
+                    
+            if (session.getStatus() != SessionStatus.PENDING) {
+                throw new IllegalArgumentException("이미 처리되었거나 유효하지 않은 결제 세션입니다.");
+            }
+            
+            if (session.getExpiresAt().isBefore(LocalDateTime.now())) {
+                session.updateStatus(SessionStatus.FAILED);
+                throw new IllegalArgumentException("결제 유효 시간이 만료되었습니다.");
+            }
+            
+            if (request.getAmount() == null || !request.getAmount().equals(session.getAmount())) {
+                throw new IllegalArgumentException("결제 요청 금액이 세션과 일치하지 않습니다.");
+            }
+            
+            // 토스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
+            tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+            
+            // 승인 성공: 세션 상태 변경 (CONSUMED 처리) -> (최종 뽑기 완료 후 COMPLETED는 생략하거나 이후 업데이트, 여기선 편의상 바로 COMPLETED)
+            session.updateStatus(SessionStatus.COMPLETED);
+            
+            // 결제 성공 시 결제(영수증) 내역 저장
+            Payment payment = Payment.builder()
+                    .member(member)
+                    .pguid(request.getPaymentKey())
+                    .merchantUid(request.getOrderId())
+                    .amount(BigDecimal.valueOf(request.getAmount()))
+                    .paymentMethod("TOSS") // 임의 지정
+                    .status(PaymentStatus.PAID)
+                    .paidAt(OffsetDateTime.now())
+                    .build();
+            savedPayment = paymentRepository.save(payment);
+        } else {
+            throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
+        }
 
         List<KujiItem> winningItems = new ArrayList<>();
         List<DrawHistory> drawHistories = new ArrayList<>();
@@ -101,6 +202,21 @@ public class KujiDrawService {
                 }
             }
         }
+        
+        DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
+
+        // 3-1. 포인트 결제인 경우 '사용' 내역 기록
+        if (request.getPaymentType() == PaymentType.POINT && firstHistory != null) {
+            PointHistory useHistory = PointHistory.builder()
+                    .member(member)
+                    .drawHistory(firstHistory) // NOT NULL 우회를 위해 첫 번째 추첨내역 연결
+                    .amount(totalRequiredAmount)
+                    .type(PointType.USE)
+                    .description(String.format("[%s] %d회 뽑기 포인트 결제", board.getTitle(), count))
+                    .appliedRewardRate(0)
+                    .build();
+            pointHistoryRepository.save(useHistory);
+        }
 
         // 4. 포인트 적립 로직 (rewardRate를 1회당 고정 포인트로 사용)
         if (board.getRewardRate() != null && board.getRewardRate() > 0) {
@@ -108,12 +224,10 @@ public class KujiDrawService {
             if (rewardAmount > 0) {
                 member.addPoint(rewardAmount);
 
-                // 첫 번째 당첨 이력과 연결 (스키마 구조상 1:1 대응이 아닐 수 있으나 일단 연결)
-                DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
-
                 PointHistory pointHistory = PointHistory.builder()
                         .member(member)
                         .drawHistory(firstHistory)
+                        .payment(savedPayment) // PG 결제였다면 payment 객체 연결
                         .amount(rewardAmount)
                         .type(PointType.REWARD)
                         .description(

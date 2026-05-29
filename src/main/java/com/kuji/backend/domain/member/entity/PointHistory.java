@@ -2,6 +2,7 @@ package com.kuji.backend.domain.member.entity;
 
 import com.kuji.backend.domain.kuji.entity.DrawHistory;
 import com.kuji.backend.domain.member.enums.PointType;
+import com.kuji.backend.domain.payment.entity.Payment;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,8 +32,9 @@ public class PointHistory {
     @JoinColumn(name = "draw_history_id")
     private DrawHistory drawHistory;
 
-    @Column(name = "payment_id")
-    private Long paymentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
 
     @Column(nullable = false)
     private Integer amount;
@@ -52,9 +54,10 @@ public class PointHistory {
     private LocalDateTime createdAt;
 
     @Builder
-    public PointHistory(Member member, DrawHistory drawHistory, Integer amount, PointType type, String description, Integer appliedRewardRate) {
+    public PointHistory(Member member, DrawHistory drawHistory, Payment payment, Integer amount, PointType type, String description, Integer appliedRewardRate) {
         this.member = member;
         this.drawHistory = drawHistory;
+        this.payment = payment;
         this.amount = amount;
         this.type = type;
         this.description = description;

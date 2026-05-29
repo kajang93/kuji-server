@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/kuji_db
-    username: kuji_user
-    password: kuji2025local!
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -29,10 +29,14 @@ server:
   address: 0.0.0.0
 
 jwt:
-  # 💡 우리 서버만의 비밀키 (실무에선 절대 유출되면 안 됨! 최소 32글자 이상 작성)
-  secret: kuji-secret-key-kuji-secret-key-kuji-secret-key
+  # 💡 우리 서버만의 비밀키 (환경변수 또는 application-secret.yml 주입)
+  secret: ${JWT_SECRET_KEY}
   # 💡 토큰 유효 시간 (밀리초 단위, 3600000 = 1시간)
   expiration: 3600000
 
 file:
   upload-dir: uploads
+
+toss:
+  # 💡 [필수] 토스페이먼츠 시크릿 키 (환경변수 또는 application-secret.yml 주입)
+  secret-key: ${TOSS_SECRET_KEY}
