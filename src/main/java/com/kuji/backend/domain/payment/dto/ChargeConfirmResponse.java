@@ -7,5 +7,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public class ChargeConfirmResponse {
     private Integer pointsCharged;
+    private Integer bonusPoints;
     private Integer totalPoints;
 }

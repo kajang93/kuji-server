@@ -8,4 +8,5 @@ import lombok.Getter;
 public class ChargePrepareResponse {
     private String orderId;
     private Integer amount;
+    private Integer bonusPoints;
 }

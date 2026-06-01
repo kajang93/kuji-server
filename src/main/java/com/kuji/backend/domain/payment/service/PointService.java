@@ -55,6 +55,7 @@ public class PointService {
         }
 
         String orderId = "CHARGE-" + UUID.randomUUID().toString();
+        int bonusPoints = calculateBonusPoints(request.getAmount());
 
         PaymentSession session = PaymentSession.builder()
                 .member(member)
@@ -64,15 +65,16 @@ public class PointService {
                 .orderId(orderId)
                 .status(SessionStatus.PENDING)
                 .sessionType(SessionType.POINT_CHARGE)
-                .metadata(String.format("{\"type\":\"POINT_CHARGE\",\"bonusPoints\":0}"))
+                .metadata(String.format("{\"type\":\"POINT_CHARGE\",\"bonusPoints\":%d}", bonusPoints))
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();
 
         paymentSessionRepository.save(session);
 
-        log.info("[포인트 충전 준비] memberId={}, orderId={}, amount={}", memberId, orderId, request.getAmount());
+        log.info("[포인트 충전 준비] memberId={}, orderId={}, amount={}, bonusPoints={}",
+                memberId, orderId, request.getAmount(), bonusPoints);
 
-        return new ChargePrepareResponse(orderId, request.getAmount());
+        return new ChargePrepareResponse(orderId, request.getAmount(), bonusPoints);
     }
 
     /**
@@ -129,8 +131,8 @@ public class PointService {
         // 5. 회원 포인트 증가 (1원 = 1포인트)
         member.addPoint(request.getAmount());
 
-        // 6. 포인트 내역 기록
-        PointHistory pointHistory = PointHistory.builder()
+        // 6. 충전 포인트 내역 기록
+        PointHistory chargeHistory = PointHistory.builder()
                 .member(member)
                 .payment(savedPayment)
                 .amount(request.getAmount())
@@ -138,12 +140,28 @@ public class PointService {
                 .description(String.format("포인트 충전 (%,d원)", request.getAmount()))
                 .appliedRewardRate(0)
                 .build();
-        pointHistoryRepository.save(pointHistory);
+        pointHistoryRepository.save(chargeHistory);
 
-        log.info("[포인트 충전 완료] memberId={}, orderId={}, amount={}, newBalance={}",
-                memberId, request.getOrderId(), request.getAmount(), member.getPoint());
+        // 7. 보너스 포인트 계산 및 적립
+        int bonusPoints = calculateBonusPoints(request.getAmount());
+        if (bonusPoints > 0) {
+            member.addPoint(bonusPoints);
+            PointHistory bonusHistory = PointHistory.builder()
+                    .member(member)
+                    .payment(savedPayment)
+                    .amount(bonusPoints)
+                    .type(PointType.REWARD)
+                    .description(String.format("충전 보너스 포인트 지급 (%,d원 충전)", request.getAmount()))
+                    .appliedRewardRate(0)
+                    .build();
+            pointHistoryRepository.save(bonusHistory);
+            log.info("[보너스 포인트 지급] memberId={}, bonusPoints={}", memberId, bonusPoints);
+        }
 
-        return new ChargeConfirmResponse(request.getAmount(), member.getPoint());
+        log.info("[포인트 충전 완료] memberId={}, orderId={}, amount={}, bonus={}, newBalance={}",
+                memberId, request.getOrderId(), request.getAmount(), bonusPoints, member.getPoint());
+
+        return new ChargeConfirmResponse(request.getAmount(), bonusPoints, member.getPoint());
     }
 
     /**
@@ -156,5 +174,19 @@ public class PointService {
                 .stream()
                 .map(PointHistoryResponse::new)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 충전 금액 구간별 보너스 포인트 계산 (서버 권위)
+     * 프론트 PRESET_AMOUNTS 와 동일한 기준 적용:
+     *   30,000원 이상  →  500P
+     *   50,000원 이상  → 1,500P
+     *  100,000원 이상  → 5,000P
+     */
+    private int calculateBonusPoints(int amount) {
+        if (amount >= 100_000) return 5_000;
+        if (amount >= 50_000)  return 1_500;
+        if (amount >= 30_000)  return 500;
+        return 0;
     }
 }
