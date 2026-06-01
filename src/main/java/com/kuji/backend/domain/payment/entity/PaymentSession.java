@@ -3,6 +3,7 @@ package com.kuji.backend.domain.payment.entity;
 import com.kuji.backend.domain.kuji.entity.KujiBoard;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.payment.enums.SessionStatus;
+import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.global.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -29,10 +30,10 @@ public class PaymentSession extends BaseTimeEntity {
     private Member member;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "board_id", nullable = false)
+    @JoinColumn(name = "board_id")
     private KujiBoard board;
 
-    @Column(nullable = false)
+    @Column
     private Integer count;
 
     @Column(nullable = false)
@@ -45,6 +46,10 @@ public class PaymentSession extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private SessionStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "session_type", nullable = false, length = 20)
+    private SessionType sessionType;
+
     @Column(length = 2000)
     private String metadata;
 
@@ -52,13 +57,14 @@ public class PaymentSession extends BaseTimeEntity {
     private LocalDateTime expiresAt;
 
     @Builder
-    public PaymentSession(Member member, KujiBoard board, Integer count, Integer amount, String orderId, SessionStatus status, String metadata, LocalDateTime expiresAt) {
+    public PaymentSession(Member member, KujiBoard board, Integer count, Integer amount, String orderId, SessionStatus status, SessionType sessionType, String metadata, LocalDateTime expiresAt) {
         this.member = member;
         this.board = board;
         this.count = count;
         this.amount = amount;
         this.orderId = orderId;
         this.status = status;
+        this.sessionType = sessionType;
         this.metadata = metadata;
         this.expiresAt = expiresAt;
     }

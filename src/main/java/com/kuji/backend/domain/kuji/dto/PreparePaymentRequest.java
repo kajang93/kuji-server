@@ -7,5 +7,4 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PreparePaymentRequest {
     private Integer count;
-    private String metadata;
 }

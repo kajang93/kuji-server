@@ -68,6 +68,13 @@
 | PATCH | `/api/notifications/read-all` | 모든 알림 읽음 처리 |
 | GET | `/api/notifications/settings` | 내 알림 수신 설정 조회 |
 | PATCH | `/api/notifications/settings` | 알림 수신 설정 수정 |
+### 💳 결제 및 포인트 충전 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| POST | `/api/kuji/{id}/payment/prepare` | 쿠지 뽑기 결제 준비 (세션 생성 및 orderId 발급) |
+| POST | `/api/kuji/{id}/draw` | 쿠지 뽑기 실행 (결제 승인 + 추첨) |
+| POST | `/api/points/charge/prepare` | 포인트 충전 준비 (결제 세션 생성 및 orderId 발급) |
+| POST | `/api/points/charge/confirm` | 포인트 충전 승인 (토스 결제 확인 + 포인트 지급) |
 
 ---
 
@@ -95,9 +102,20 @@
 - [x] **실시간 알림**: FCM(Firebase Cloud Messaging) 연동 및 배송 단계/당첨/댓글/문의 답변 푸시 발송 트리거 연동 완료
 - [x] **사업자 전용 기능**: 사업자용 배송 관리 대시보드 API (목록 조회 및 배송 시작/완료 처리) 완료
 - [x] **알림 수신 설정**: 알림 전체 및 유형별 세부 차단 설정, 야간 푸시 수신 제한(22:00~08:00) 로직 구현 완료
+- [x] **결제 시스템 (포인트 충전)**: 토스페이먼츠 연동을 통한 지갑(Wallet) 포인트 충전 구현 완료
+  - *[백로그] 특정 금액(예: 5만원) 이상 충전 시 보너스 포인트 지급 이벤트 기능 추가 예정*
 - [ ] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
-- [ ] **결제 시스템**: 토스페이먼츠 / 카카오페이 API 연동 (포인트 충전)
 - [ ] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
+
+### 🔭 Phase 5: 옵저버빌리티 및 운영 지능화 (예정)
+- [ ] **구조화 로그 시스템**: Logback + MDC 기반 요청 추적 로그 설계 및 JSON 포맷 표준화
+  - 결제 플로우, 뽑기 추첨, 배송 상태 변경 등 비즈니스 이벤트 감사 로그(Audit Log) 분리 적용
+- [ ] **메트릭 수집 (Prometheus)**: Spring Boot Actuator + Micrometer 연동
+  - API 응답 시간, 뽑기 TPS, 결제 성공/실패율, JVM 힙 사용량 등 핵심 지표 수집
+- [ ] **모니터링 대시보드 (Grafana)**: Prometheus 데이터 소스 기반 실시간 시각화 대시보드 구축
+  - 서버 상태, 트랜잭션 현황, 알림 발송 성공률 패널 구성
+- [ ] **AI 기반 상태 보고**: 수집된 메트릭 및 로그 데이터를 AI(LLM)로 분석하여 운영 이상 징후 탐지 및 자동 보고서 생성
+  - 이상 트래픽 감지, 결제 실패 패턴 분석, 주간 서비스 상태 요약 리포트 자동화
 
 ---
 

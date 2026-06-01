@@ -23,6 +23,7 @@ import com.kuji.backend.domain.payment.entity.PaymentSession;
 import com.kuji.backend.domain.payment.enums.PaymentStatus;
 import com.kuji.backend.domain.payment.enums.PaymentType;
 import com.kuji.backend.domain.payment.enums.SessionStatus;
+import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
 import com.kuji.backend.global.infra.toss.TossPaymentClient;
@@ -75,6 +76,10 @@ public class KujiDrawService {
         int amount = (int) (board.getPricePerDraw() * count);
         String orderId = "KUJI-" + UUID.randomUUID().toString();
         
+        String metadata = String.format(
+                "{\"type\":\"KUJI_DRAW\",\"boardId\":%d,\"count\":%d,\"pointsUsed\":0}",
+                boardId, count);
+
         PaymentSession session = PaymentSession.builder()
                 .member(member)
                 .board(board)
@@ -82,7 +87,8 @@ public class KujiDrawService {
                 .amount(amount)
                 .orderId(orderId)
                 .status(SessionStatus.PENDING)
-                .metadata(request.getMetadata())
+                .sessionType(SessionType.KUJI_DRAW)
+                .metadata(metadata)
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();
                 

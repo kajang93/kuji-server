@@ -4,5 +4,6 @@ public enum SessionStatus {
     PENDING,
     CONSUMED,
     COMPLETED,
-    FAILED
+    FAILED,
+    EXPIRED
 }
