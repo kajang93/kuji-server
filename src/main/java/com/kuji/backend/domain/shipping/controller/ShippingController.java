@@ -3,6 +3,8 @@ package com.kuji.backend.domain.shipping.controller;
 import com.kuji.backend.domain.shipping.dto.ShippingRequest;
 import com.kuji.backend.domain.shipping.dto.ShippingResponse;
 import com.kuji.backend.domain.shipping.dto.TrackingRequest;
+import com.kuji.backend.domain.shipping.dto.TrackingResponse;
+import com.kuji.backend.domain.shipping.service.DeliveryTrackingService;
 import com.kuji.backend.domain.shipping.service.ShippingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import java.util.List;
 public class ShippingController {
 
     private final ShippingService shippingService;
+    private final DeliveryTrackingService deliveryTrackingService;
 
     /**
      * 배송 신청 API
@@ -80,5 +83,15 @@ public class ShippingController {
     public ResponseEntity<Void> completeShipping(@PathVariable Long id) {
         shippingService.completeShipping(id);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 배송 추적 정보 조회 API (Mock)
+     * 차후 SweetTracker API 연동 시 실제 데이터가 반환됩니다.
+     */
+    @GetMapping("/{id}/tracking")
+    public ResponseEntity<TrackingResponse> getTrackingInfo(@PathVariable Long id) {
+        TrackingResponse response = deliveryTrackingService.getTrackingInfo(id);
+        return ResponseEntity.ok(response);
     }
 }
