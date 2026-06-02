@@ -146,8 +146,13 @@ public class DeliveryTrackingService {
             case "한진택배", "한진" -> "kr.hanjin";
             case "롯데택배", "롯데" -> "kr.lotte";
             case "로젠택배", "로젠" -> "kr.logen";
-            case "CU편의점택배" -> "kr.cupost";
-            case "GS25편의점택배" -> "kr.cvsnet";
+            case "CU편의점택배", "CU" -> "kr.cupost";
+            case "GS25편의점택배", "GS25" -> "kr.cvsnet";
+            case "쿠팡로지스틱스", "쿠팡" -> "kr.coupangls";
+            case "우체국 EMS", "EMS" -> "kr.epost.ems";
+            case "경동택배", "경동" -> "kr.kdexp";
+            case "대신택배", "대신" -> "kr.daesin";
+            case "일양로지스", "일양" -> "kr.ilyanglogis";
             case "dev.track.dummy" -> "dev.track.dummy"; // 개발자 전용 명시적 더미 코드 (일반인은 절대 모름)
             default -> "kr.cjlogistics"; // 기본값
         };

@@ -31,8 +31,8 @@ server:
 jwt:
   # 💡 우리 서버만의 비밀키 (환경변수 또는 application-secret.yml 주입)
   secret: ${JWT_SECRET_KEY}
-  # 💡 토큰 유효 시간 (밀리초 단위, 3600000 = 1시간)
-  expiration: 3600000
+  # 💡 토큰 유효 시간 (밀리초 단위, 604800000 = 1주일)
+  expiration: 604800000
 
 file:
   upload-dir: uploads
