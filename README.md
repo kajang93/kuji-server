@@ -135,7 +135,12 @@
 - [x] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
 - [x] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
 
-### 🔭 Phase 5: 옵저버빌리티 및 운영 지능화 (예정)
+### 🔭 Phase 5: 앱 패키징 및 하이브리드 앱 전환 (우선순위 🔺)
+- [ ] **앱 껍데기(App Shell) 구축**: React Native(WebView) 또는 Flutter를 이용한 하이브리드 앱 기반 마련
+- [ ] **네이티브 기능 연동**: 푸시 알림(FCM) 네이티브 수신, 권한(카메라, 사진첩) 연동 준비
+- [ ] **스토어 배포 준비**: iOS(App Store) 및 Android(Play Store) 심사용 기본 패키징
+
+### 🔮 Phase 6: 옵저버빌리티 및 운영 지능화 (예정)
 - [ ] **구조화 로그 시스템**: Logback + MDC 기반 요청 추적 로그 설계 및 JSON 포맷 표준화
   - 결제 플로우, 뽑기 추첨, 배송 상태 변경 등 비즈니스 이벤트 감사 로그(Audit Log) 분리 적용
 - [ ] **메트릭 수집 (Prometheus)**: Spring Boot Actuator + Micrometer 연동
