@@ -61,6 +61,9 @@ public class Member extends BaseTimeEntity {
     @Column(name = "profile_image_url", length = 255)
     private String profileImageUrl;
 
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
@@ -80,7 +83,7 @@ public class Member extends BaseTimeEntity {
 
     @Builder
     public Member(RoleType role, SocialType socialType, String socialId, String email, 
-                  String password, String nickname, String profileImageUrl, LocalDate birthDate, 
+                  String password, String nickname, String profileImageUrl, String phoneNumber, LocalDate birthDate, 
                   Boolean isTermsAgreed, Boolean isPrivacyAgreed, Boolean isMarketingAgreed) {
         this.role = role;
         this.socialType = socialType;
@@ -89,6 +92,7 @@ public class Member extends BaseTimeEntity {
         this.password = password;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+        this.phoneNumber = phoneNumber;
         this.birthDate = birthDate;
         this.isTermsAgreed = isTermsAgreed;
         this.isPrivacyAgreed = isPrivacyAgreed;
@@ -124,5 +128,9 @@ public class Member extends BaseTimeEntity {
     // 💡 사업자 정보를 등록하는 연관관계 편의 메서드
     public void registerBusinessInfo(BusinessInfo businessInfo) {
         this.businessInfo = businessInfo;
+    }
+
+    public void updatePassword(String password) {
+        this.password = password;
     }
 }

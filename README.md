@@ -35,10 +35,22 @@
 - **JWT 인증**: 모든 요청에 대한 토큰 검증 및 보안 필터 적용. (현재 MVP 단계의 사용성 향상을 위해 Access Token 만료일을 **1주일**로 연장 설정. 차후 Refresh Token 도입 예정)
 - **카카오 OAuth 2.0**: 소셜 로그인 연동을 통한 간편 가입 및 로그인.
 - **Role-Based Access**: 일반 사용자, 사업자, 관리자별 상세 권한 제어.
+- **계정 찾기 및 SMS 인증**: 휴대폰 번호 기반의 본인 인증(Aligo API 연동)을 통한 아이디 찾기 및 임시 비밀번호 발급.
 
 ---
 
 ## 🚀 API 엔드포인트 목록 (API Specs)
+
+### 🔐 보안 및 사용자 인증 (Auth)
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| POST | `/api/members/signup` | 일반 회원가입 (이메일, 비밀번호, 닉네임, 휴대폰 등) |
+| GET | `/api/members/check-email` | 회원가입 시 이메일 중복 확인 |
+| POST | `/api/members/login` | 일반 이메일 로그인 (JWT 발급) |
+| POST | `/api/members/send-sms` | 휴대폰 본인인증을 위한 SMS 인증번호 발송 |
+| POST | `/api/members/find-id` | 인증번호 검증 후 가입된 이메일(아이디) 찾기 및 마스킹 반환 |
+| POST | `/api/members/reset-password` | 가입 정보(이메일+휴대폰) 확인 후 임시 비밀번호로 초기화 |
+| GET | `/api/admin/members` | (관리자 전용) 전체 가입 회원 리스트 조회 |
 
 ### 🛒 쿠지 및 뽑기 관련
 | Method | Endpoint | Description |
@@ -56,6 +68,7 @@
 | GET | `/api/shipping/admin` | (관리자) 전체 배송 요청 리스트 조회 |
 | GET | `/api/shipping/seller` | (사업자) 소유한 쿠지 판의 배송 요청 리스트 조회 |
 | PATCH | `/api/shipping/{id}/tracking` | (사업자) 운송장 등록 및 배송 시작 처리 (DrawHistory 상태도 SHIPPING으로 동기화) |
+| GET | `/api/shipping/{id}/tracking` | 실시간 배송 추적 현황 조회 (SweetTracker 등 택배 API 연동) |
 | PATCH | `/api/shipping/{id}/complete` | (구매자) 수령 및 배송 확정 처리 (운송장 등록 필수 유효성 검사 적용) |
 
 ### 🔔 알림 및 수신 설정 관련
@@ -75,6 +88,21 @@
 | POST | `/api/kuji/{id}/draw` | 쿠지 뽑기 실행 (결제 승인 + 추첨) |
 | POST | `/api/points/charge/prepare` | 포인트 충전 준비 (결제 세션 생성 및 orderId 발급) |
 | POST | `/api/points/charge/confirm` | 포인트 충전 승인 (토스 결제 확인 + 포인트 지급) |
+
+### 📈 통계 및 대시보드 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| GET | `/api/statistics/admin/summary` | (관리자) 플랫폼 전체 요약 통계 조회 (총 가입자, 거래액 등) |
+| GET | `/api/statistics/admin/daily-sales` | (관리자) 최근 N일간 일별 매출 차트 데이터 조회 |
+| GET | `/api/statistics/seller/summary` | (사업자) 내 쿠지 판 요약 통계 조회 (진행 중인 쿠지, 누적 판매액 등) |
+| GET | `/api/statistics/seller/daily-sales` | (사업자) 최근 N일간 내 쿠지 판 일별 매출 차트 데이터 조회 |
+
+### 💬 커뮤니티 및 문의 관련
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| GET/POST | `/api/posts` | 커뮤니티 게시글(자유/당첨인증) 목록 및 작성 |
+| POST | `/api/inquiries` | 1:1 문의글 작성 |
+| GET | `/api/admin/inquiries` | (관리자) 전체 1:1 문의 목록 조회 및 답변 작성 |
 
 ---
 
@@ -103,9 +131,9 @@
 - [x] **사업자 전용 기능**: 사업자용 배송 관리 대시보드 API (목록 조회 및 배송 시작/완료 처리) 완료
 - [x] **알림 수신 설정**: 알림 전체 및 유형별 세부 차단 설정, 야간 푸시 수신 제한(22:00~08:00) 로직 구현 완료
 - [x] **결제 시스템 (포인트 충전)**: 토스페이먼츠 연동을 통한 지갑(Wallet) 포인트 충전 구현 완료
-  - *[백로그] 특정 금액(예: 5만원) 이상 충전 시 보너스 포인트 지급 이벤트 기능 추가 예정*
-- [ ] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
-- [ ] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
+  - [x] 특정 금액(3만/5만/10만) 이상 충전 시 보너스 포인트 자동 지급 기능 연동 완료
+- [x] **배송 추적 시스템**: 외부 택배 API(SweetTracker 등) 연동을 통한 실시간 배송 현황 조회
+- [x] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
 
 ### 🔭 Phase 5: 옵저버빌리티 및 운영 지능화 (예정)
 - [ ] **구조화 로그 시스템**: Logback + MDC 기반 요청 추적 로그 설계 및 JSON 포맷 표준화

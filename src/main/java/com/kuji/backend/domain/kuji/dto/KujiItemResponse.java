@@ -22,4 +22,5 @@ public class KujiItemResponse {
     private List<String> imageUrls;
     private List<Boolean> opened; // 각 아이템별 오픈 상태 리스트 추가
     private Long drawHistoryId; // 개별 당첨 이력 ID 추가
+    private String options; // 옵션 정보 (JSON)
 }

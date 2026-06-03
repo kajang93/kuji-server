@@ -29,6 +29,7 @@ public class MemberService {
     private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
     private final BusinessInfoRepository businessInfoRepository;
     private final FileService fileService;
+    private final SmsVerificationService smsVerificationService;
 
     /**
      * 내 정보 조회
@@ -195,5 +196,55 @@ public class MemberService {
 
         // 2. 찾은 Entity를 예쁜 DTO 상자에 담아서 반환
         return MemberProfileResponse.from(member);
+    }
+
+    /**
+     * 아이디 찾기 (전화번호와 인증번호로 검증 후 전체 이메일 반환)
+     */
+    public String findId(String phoneNumber, String verificationCode) {
+        // 1. 인증번호 검증 (실패 시 예외 발생)
+        smsVerificationService.verifyCode(phoneNumber, verificationCode);
+
+        // 2. 전화번호로 회원 조회
+        Member member = memberRepository.findByPhoneNumber(phoneNumber)
+                .orElseThrow(() -> new IllegalArgumentException("해당 전화번호로 가입된 회원이 없습니다."));
+        
+        String email = member.getEmail();
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("이메일로 가입된 계정이 아닙니다 (소셜 가입 등).");
+        }
+        
+        // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환
+        return email;
+    }
+
+    /**
+     * 비밀번호 초기화 (이메일, 전화번호 검증 후 임시 비밀번호로 변경)
+     */
+    @Transactional
+    public void resetPassword(String email, String phoneNumber) {
+        Member member = memberRepository.findByEmailAndPhoneNumber(email, phoneNumber)
+                .orElseThrow(() -> new IllegalArgumentException("일치하는 회원 정보가 없습니다."));
+        
+        // 임시 비밀번호 설정 (데모용)
+        String tempPassword = passwordEncoder.encode("temp1234!");
+        
+        member.updatePassword(tempPassword);
+    }
+
+    /**
+     * 이메일 중복 여부 확인
+     */
+    public boolean isEmailExist(String email) {
+        return memberRepository.findByEmail(email).isPresent();
+    }
+
+    /**
+     * 사업자 프로필 조회
+     */
+    public com.kuji.backend.domain.member.dto.BusinessProfileResponse getBusinessProfile(Long memberId) {
+        com.kuji.backend.domain.member.entity.BusinessInfo businessInfo = businessInfoRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사업자 정보를 찾을 수 없습니다."));
+        return com.kuji.backend.domain.member.dto.BusinessProfileResponse.from(businessInfo);
     }
 }

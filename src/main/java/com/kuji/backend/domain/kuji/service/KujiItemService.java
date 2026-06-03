@@ -39,6 +39,7 @@ public class KujiItemService {
                 .grade(request.getGrade())
                 .name(request.getName())
                 .totalQty(request.getTotalQty())
+                .options(request.getOptions())
                 .kujiBoard(kujiBoard)
                 .build();
 
@@ -73,6 +74,7 @@ public class KujiItemService {
                     .grade(request.getGrade())
                     .name(request.getName())
                     .totalQty(request.getTotalQty())
+                    .options(request.getOptions())
                     .kujiBoard(kujiBoard)
                     .build();
             KujiItem savedItem = kujiItemRepository.save(kujiItem);
@@ -104,8 +106,9 @@ public class KujiItemService {
         String newGrade = request.getGrade() != null ? request.getGrade() : kujiItem.getGrade();
         String newName = request.getName() != null ? request.getName() : kujiItem.getName();
         Integer newQty = request.getTotalQty() != null ? request.getTotalQty() : kujiItem.getTotalQty();
+        String newOptions = request.getOptions() != null ? request.getOptions() : kujiItem.getOptions();
 
-        kujiItem.update(newGrade, newName, newQty);
+        kujiItem.update(newGrade, newName, newQty, newOptions);
     }
 
     /**
@@ -174,6 +177,7 @@ public class KujiItemService {
                 .remainQty(remain)
                 .imageUrls(imageUrls)
                 .opened(opened)
+                .options(item.getOptions())
                 .build();
     }
 }

@@ -70,4 +70,58 @@ public class MemberController {
         MemberProfileResponse updatedProfile = memberService.updateProfile(memberId, request, profileImage);
         return ResponseEntity.ok(updatedProfile);
     }
+
+    /**
+     * 이메일 중복 확인 API
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<CheckEmailResponse> checkEmail(@RequestParam String email) {
+        boolean isAvailable = !memberService.isEmailExist(email);
+        return ResponseEntity.ok(new CheckEmailResponse(isAvailable));
+    }
+
+    /**
+     * 인증문자 발송 API
+     */
+    @PostMapping("/send-sms")
+    public ResponseEntity<Void> sendSms(@RequestBody java.util.Map<String, String> request) {
+        String phoneNumber = request.get("phoneNumber");
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            throw new IllegalArgumentException("휴대폰 번호가 필요합니다.");
+        }
+        com.kuji.backend.domain.member.service.SmsVerificationService smsService = 
+            org.springframework.web.context.support.WebApplicationContextUtils.getWebApplicationContext(
+                ((org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()).getRequest().getServletContext()
+            ).getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
+            
+        smsService.sendVerificationCode(phoneNumber);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 아이디 찾기 API (전화번호와 인증번호로 조회)
+     */
+    @PostMapping("/find-id")
+    public ResponseEntity<FindIdResponse> findId(@RequestBody FindIdRequest request) {
+        String fullEmail = memberService.findId(request.phoneNumber(), request.verificationCode());
+        return ResponseEntity.ok(new FindIdResponse(fullEmail));
+    }
+
+    /**
+     * 비밀번호 초기화 API (이메일 + 전화번호 일치 시 임시 비밀번호로 변경)
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest request) {
+        memberService.resetPassword(request.email(), request.phoneNumber());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 사업자 프로필 조회 API
+     */
+    @GetMapping("/business-profile")
+    public ResponseEntity<BusinessProfileResponse> getBusinessProfile(@AuthenticationPrincipal Long memberId) {
+        BusinessProfileResponse response = memberService.getBusinessProfile(memberId);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -13,6 +13,7 @@ public record MemberProfileResponse(
         String email,
         String nickname,
         String profileImageUrl,
+        String phoneNumber,
         LocalDate birthDate,
         Integer points,
         RoleType role) {
@@ -23,6 +24,7 @@ public record MemberProfileResponse(
                 member.getEmail(),
                 member.getNickname(),
                 member.getProfileImageUrl(),
+                member.getPhoneNumber(),
                 member.getBirthDate(),
                 member.getPoint(),
                 member.getRole());

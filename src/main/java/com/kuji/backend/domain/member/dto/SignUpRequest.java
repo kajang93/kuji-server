@@ -12,6 +12,7 @@ public record SignUpRequest(
         String email,
         String password, // 소셜 로그인의 경우 비밀번호가 없을 수 있으므로 nullable 처리
         String nickname,
+        String phoneNumber,
         LocalDate birthDate,
         RoleType role,
         String businessNumber,
@@ -29,6 +30,7 @@ public record SignUpRequest(
                 .email(this.email)
                 .password(encodedPassword) // 💡 날것 대신 암호화된 비밀번호가 들어갑니다!
                 .nickname(this.nickname)
+                .phoneNumber(this.phoneNumber)
                 .birthDate(this.birthDate)
                 .isTermsAgreed(this.isTermsAgreed)
                 .isPrivacyAgreed(this.isPrivacyAgreed)

@@ -11,4 +11,5 @@ public class KujiItemCreateRequest {
     private String grade;
     private String name;
     private Integer totalQty;
+    private String options;
 }

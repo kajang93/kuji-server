@@ -12,4 +12,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     // 💡 실무 팁: 소셜 로그인 연동 시 가입된 회원인지 확인하기 위해 사용합니다.
     Optional<Member> findBySocialTypeAndSocialId(SocialType socialType, String socialId);
+
+    // [Admin] 특정 시점 이후 가입한 회원 수 집계 (예: 오늘 신규 가입자)
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM Member m WHERE m.createdAt >= :startDate")
+    Long countMembersCreatedAfter(@org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate);
+
+    Optional<Member> findByPhoneNumber(String phoneNumber);
+    
+    Optional<Member> findByEmailAndPhoneNumber(String email, String phoneNumber);
 }

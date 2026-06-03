@@ -40,3 +40,7 @@ file:
 toss:
   # 💡 [필수] 토스페이먼츠 시크릿 키 (환경변수 또는 application-secret.yml 주입)
   secret-key: ${TOSS_SECRET_KEY}
+aligo:
+  api-key: ${ALIGO_API_KEY:mock}
+  user-id: ${ALIGO_USER_ID:mock}
+  sender: ${ALIGO_SENDER:01022210106}

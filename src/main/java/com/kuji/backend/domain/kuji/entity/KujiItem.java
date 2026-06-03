@@ -37,6 +37,9 @@ public class KujiItem {
     @Column(name = "remain_qty", nullable = false)
     private Integer remainQty;
 
+    @Column(columnDefinition = "TEXT")
+    private String options;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kuji_board_id", nullable = false)
     private KujiBoard kujiBoard;
@@ -53,20 +56,22 @@ public class KujiItem {
     private LocalDateTime updatedAt;
 
     @Builder
-    public KujiItem(String grade, String name, Integer totalQty, KujiBoard kujiBoard) {
+    public KujiItem(String grade, String name, Integer totalQty, String options, KujiBoard kujiBoard) {
         this.grade = grade;
         this.name = name;
         this.totalQty = totalQty;
         this.remainQty = totalQty; // 초기에는 전체 수량과 동일
+        this.options = options;
         this.kujiBoard = kujiBoard;
     }
 
-    public void update(String grade, String name, Integer totalQty) {
+    public void update(String grade, String name, Integer totalQty, String options) {
         validateModifiable();
         this.grade = grade;
         this.name = name;
         this.totalQty = totalQty;
         this.remainQty = totalQty; // 수동 수정 시 잔여 수량도 초기화 (정책에 따라 조정 가능)
+        this.options = options;
     }
 
     public void decreaseRemainQty() {
