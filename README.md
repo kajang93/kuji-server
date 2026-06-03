@@ -136,8 +136,9 @@
 - [x] **운영 도구**: 정산 관리 및 통계 대시보드 고도화
 
 ### 🔭 Phase 5: 앱 패키징 및 하이브리드 앱 전환 (우선순위 🔺)
-- [ ] **앱 껍데기(App Shell) 구축**: React Native(WebView) 또는 Flutter를 이용한 하이브리드 앱 기반 마련
+- [ ] **앱 껍데기(App Shell) 구축**: React Native(WebView) 또는 Capacitor를 이용한 하이브리드 앱 기반 마련
 - [ ] **네이티브 기능 연동**: 푸시 알림(FCM) 네이티브 수신, 권한(카메라, 사진첩) 연동 준비
+- [ ] **자동화 베타 테스트**: Firebase Test Lab (Robo Test)을 활용한 AI 기반 무작위 UI 크래시 테스트 (런칭 직전)
 - [ ] **스토어 배포 준비**: iOS(App Store) 및 Android(Play Store) 심사용 기본 패키징
 
 ### 🔮 Phase 6: 옵저버빌리티 및 운영 지능화 (예정)
