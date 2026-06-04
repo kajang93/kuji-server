@@ -17,10 +17,15 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmsVerificationService {
+
+    private static final Logger businessLogger = LoggerFactory.getLogger("BUSINESS_LOGGER");
 
     @Value("${aligo.api-key:mock}")
     private String aligoApiKey;
@@ -60,7 +65,7 @@ public class SmsVerificationService {
 
         // 3. API 키가 mock이면 실제 발송을 생략하고 로그만 찍습니다.
         if ("mock".equals(aligoApiKey)) {
-            log.info("🔔 [Mock SMS 발송] 수신자: {}, 내용: {}", phoneNumber, message);
+            businessLogger.info("[SMS_SEND_SUCCESS] mock=true, receiver={}, message=\"{}\"", phoneNumber, message);
             return;
         }
 
@@ -79,9 +84,9 @@ public class SmsVerificationService {
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity("https://apis.aligo.in/send/", request, String.class);
 
-            log.info("🔔 [Aligo SMS 발송 완료] 응답: {}", response.getBody());
+            businessLogger.info("[SMS_SEND_SUCCESS] mock=false, receiver={}, response=\"{}\"", phoneNumber, response.getBody());
         } catch (Exception e) {
-            log.error("❌ [Aligo SMS 발송 실패]", e);
+            businessLogger.error("[SMS_SEND_FAIL] receiver={}, reason=\"{}\"", phoneNumber, e.getMessage());
             throw new RuntimeException("SMS 발송에 실패했습니다. 관리자에게 문의하세요.");
         }
     }

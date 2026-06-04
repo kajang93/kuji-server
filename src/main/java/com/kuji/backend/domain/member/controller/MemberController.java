@@ -84,18 +84,36 @@ public class MemberController {
      * 인증문자 발송 API
      */
     @PostMapping("/send-sms")
-    public ResponseEntity<Void> sendSms(@RequestBody java.util.Map<String, String> request) {
+    public ResponseEntity<String> sendSms(@RequestBody java.util.Map<String, String> request, org.springframework.context.ApplicationContext context) {
         String phoneNumber = request.get("phoneNumber");
         if (phoneNumber == null || phoneNumber.isBlank()) {
-            throw new IllegalArgumentException("휴대폰 번호가 필요합니다.");
+            return ResponseEntity.badRequest().body("전화번호가 필요합니다.");
         }
         com.kuji.backend.domain.member.service.SmsVerificationService smsService = 
-            org.springframework.web.context.support.WebApplicationContextUtils.getWebApplicationContext(
-                ((org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()).getRequest().getServletContext()
-            ).getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
-            
+            context.getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
         smsService.sendVerificationCode(phoneNumber);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok("인증번호가 발송되었습니다.");
+    }
+
+    /**
+     * 7. 문자 인증번호 검증 API (회원가입 용)
+     */
+    @PostMapping("/verify-sms")
+    public ResponseEntity<String> verifySms(@RequestBody java.util.Map<String, String> request, org.springframework.context.ApplicationContext context) {
+        String phoneNumber = request.get("phoneNumber");
+        String code = request.get("code");
+        if (phoneNumber == null || code == null) {
+            return ResponseEntity.badRequest().body("전화번호와 인증번호가 필요합니다.");
+        }
+        com.kuji.backend.domain.member.service.SmsVerificationService smsService = 
+            context.getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
+        
+        boolean isValid = smsService.verifyCode(phoneNumber, code);
+        if (isValid) {
+            return ResponseEntity.ok("인증되었습니다.");
+        } else {
+            return ResponseEntity.badRequest().body("인증번호가 일치하지 않거나 만료되었습니다.");
+        }
     }
 
     /**

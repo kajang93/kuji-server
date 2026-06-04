@@ -45,9 +45,14 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @RequiredArgsConstructor
 public class KujiDrawService {
+
+    private static final Logger businessLogger = LoggerFactory.getLogger("BUSINESS_LOGGER");
 
     private final KujiBoardRepository kujiBoardRepository;
     private final KujiItemRepository kujiItemRepository;
@@ -145,7 +150,12 @@ public class KujiDrawService {
             }
             
             // 토스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
-            tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+            try {
+                tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+            } catch (Exception e) {
+                businessLogger.error("[PAYMENT_FAIL] type=KUJI_DRAW, memberId={}, orderId={}, reason=\"{}\"", memberId, request.getOrderId(), e.getMessage());
+                throw e;
+            }
             
             // 승인 성공: 세션 상태 변경 (CONSUMED 처리) -> (최종 뽑기 완료 후 COMPLETED는 생략하거나 이후 업데이트, 여기선 편의상 바로 COMPLETED)
             session.updateStatus(SessionStatus.COMPLETED);
@@ -161,6 +171,8 @@ public class KujiDrawService {
                     .paidAt(OffsetDateTime.now())
                     .build();
             savedPayment = paymentRepository.save(payment);
+            businessLogger.info("[PAYMENT_SUCCESS] type=KUJI_DRAW, memberId={}, orderId={}, paymentKey={}, amount={}",
+                    memberId, request.getOrderId(), request.getPaymentKey(), request.getAmount());
         } else {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
         }
@@ -203,7 +215,11 @@ public class KujiDrawService {
                             .kujiBoard(board)
                             .kujiItem(item)
                             .build();
-                    drawHistories.add(drawHistoryRepository.save(history));
+                    DrawHistory savedHistory = drawHistoryRepository.save(history);
+                    drawHistories.add(savedHistory);
+                    
+                    businessLogger.info("[DRAW_SUCCESS] memberId={}, boardId={}, grade={}, itemName={}",
+                            memberId, boardId, item.getGrade(), item.getName());
                     break;
                 }
             }

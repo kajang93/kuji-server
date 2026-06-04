@@ -63,6 +63,9 @@ dependencies {
 
     // === 6. Firebase Admin SDK (FCM 알림 발송용) ===
     implementation 'com.google.firebase:firebase-admin:9.2.0'
+
+    // === 7. 로깅 (JSON 포맷 출력용) ===
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
 }
 // --- Querydsl Q-Class 생성 설정 ---
 def querydslDir = "$buildDir/generated/querydsl"

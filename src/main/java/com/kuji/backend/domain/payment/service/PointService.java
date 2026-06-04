@@ -30,11 +30,16 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class PointService {
+
+    private static final Logger businessLogger = LoggerFactory.getLogger("BUSINESS_LOGGER");
 
     private final MemberRepository memberRepository;
     private final PointHistoryRepository pointHistoryRepository;
@@ -71,7 +76,7 @@ public class PointService {
 
         paymentSessionRepository.save(session);
 
-        log.info("[포인트 충전 준비] memberId={}, orderId={}, amount={}, bonusPoints={}",
+        businessLogger.info("[PAYMENT_PREPARE] type=POINT_CHARGE, memberId={}, orderId={}, amount={}, bonusPoints={}",
                 memberId, orderId, request.getAmount(), bonusPoints);
 
         return new ChargePrepareResponse(orderId, request.getAmount(), bonusPoints);
@@ -111,7 +116,12 @@ public class PointService {
         }
 
         // 2. 토스페이먼츠 승인 요청
-        tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+        try {
+            tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+        } catch (Exception e) {
+            businessLogger.error("[PAYMENT_FAIL] type=POINT_CHARGE, memberId={}, orderId={}, reason=\"{}\"", memberId, request.getOrderId(), e.getMessage());
+            throw e; // 재발생시켜서 글로벌 에러 헨들러로 넘김
+        }
 
         // 3. 세션 상태 완료 처리
         session.updateStatus(SessionStatus.COMPLETED);
@@ -155,11 +165,11 @@ public class PointService {
                     .appliedRewardRate(0)
                     .build();
             pointHistoryRepository.save(bonusHistory);
-            log.info("[보너스 포인트 지급] memberId={}, bonusPoints={}", memberId, bonusPoints);
+            businessLogger.info("[POINT_REWARD] type=CHARGE_BONUS, memberId={}, bonusPoints={}", memberId, bonusPoints);
         }
 
-        log.info("[포인트 충전 완료] memberId={}, orderId={}, amount={}, bonus={}, newBalance={}",
-                memberId, request.getOrderId(), request.getAmount(), bonusPoints, member.getPoint());
+        businessLogger.info("[PAYMENT_SUCCESS] type=POINT_CHARGE, memberId={}, orderId={}, paymentKey={}, amount={}, bonus={}, newBalance={}",
+                memberId, request.getOrderId(), request.getPaymentKey(), request.getAmount(), bonusPoints, member.getPoint());
 
         return new ChargeConfirmResponse(request.getAmount(), bonusPoints, member.getPoint());
     }
