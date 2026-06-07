@@ -22,8 +22,8 @@ spring:
       region:
         static: eu-north-1
 
-  profiles:
-    include: secret
+  config:
+    import: optional:classpath:application-secret.yml
 server:
   port: 8080
   address: 0.0.0.0

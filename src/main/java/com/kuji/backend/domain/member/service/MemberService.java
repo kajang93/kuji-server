@@ -17,7 +17,9 @@ import com.kuji.backend.domain.member.enums.RoleType;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
 import com.kuji.backend.global.service.FileService;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -175,14 +177,21 @@ public class MemberService {
      * 회원 로그인
      */
     public String login(LoginRequest request) {
+        int pwdLength = (request.password() != null) ? request.password().length() : 0;
+        
         Member member = memberRepository.findByEmail(request.email())
-                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+                .orElseThrow(() -> {
+                    log.warn("Login Failed (User Not Found) - Email: {}, PasswordLength: {}", request.email(), pwdLength);
+                    return new IllegalArgumentException("가입되지 않은 이메일입니다.");
+                });
 
         if (member.getPassword() == null || !passwordEncoder.matches(request.password(), member.getPassword())) {
+            log.warn("Login Failed (Invalid Password) - Email: {}, PasswordLength: {}", request.email(), pwdLength);
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
         // 검증 통과! 이제 ID 대신 영롱한 JWT 토큰을 발급해서 줍니다!
+        log.info("Login Success - Email: {}", request.email());
         return jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
     }
 

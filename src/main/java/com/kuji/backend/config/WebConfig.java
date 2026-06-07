@@ -28,7 +28,10 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:5173",
                         "http://127.0.0.1:5173",
-                        "http://192.168.219.105:5173" // 추가하신 공유기 IP 허용
+                        "http://192.168.219.105:5173",
+                        "capacitor://localhost",  // iOS Capacitor 앱
+                        "http://localhost",        // Android Capacitor 앱
+                        "ionic://localhost"         // Ionic 호환
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
