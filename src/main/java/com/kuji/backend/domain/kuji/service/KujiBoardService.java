@@ -13,7 +13,7 @@ import com.kuji.backend.domain.kuji.entity.KujiItem;
 import com.kuji.backend.domain.notification.service.WishlistNotificationService;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
-import com.kuji.backend.global.service.FileService;
+import com.kuji.backend.global.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,7 @@ public class KujiBoardService {
     private final KujiItemRepository kujiItemRepository;
     private final MemberRepository memberRepository;
     private final WishlistRepository wishlistRepository; // 추가
-    private final FileService fileService;
+    private final S3Service s3Service;
     private final WishlistNotificationService wishlistNotificationService;
 
     /**
@@ -62,8 +62,19 @@ public class KujiBoardService {
         KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
 
+        // 기존 해당 타입의 이미지가 있다면 S3 및 DB에서 쓰레기 데이터 정리
+        List<KujiBoardImage> existingImages = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(boardId).stream()
+                .filter(img -> img.getImageType() == type)
+                .collect(Collectors.toList());
+        for (KujiBoardImage img : existingImages) {
+            if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
+                s3Service.deleteFile(img.getImageUrl());
+            }
+        }
+        kujiBoardImageRepository.deleteAll(existingImages);
+
         for (int i = 0; i < files.size(); i++) {
-            String imageUrl = fileService.saveFile("boards", files.get(i));
+            String imageUrl = s3Service.uploadFile("boards", files.get(i));
             KujiBoardImage image = KujiBoardImage.builder()
                     .kujiBoard(kujiBoard)
                     .imageUrl(imageUrl)

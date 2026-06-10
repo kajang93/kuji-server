@@ -8,7 +8,7 @@ import com.kuji.backend.domain.kuji.entity.KujiItemImage;
 import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemImageRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
-import com.kuji.backend.global.service.FileService;
+import com.kuji.backend.global.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,7 @@ public class KujiItemService {
     private final KujiItemRepository kujiItemRepository;
     private final KujiItemImageRepository kujiItemImageRepository;
     private final KujiBoardRepository kujiBoardRepository;
-    private final FileService fileService;
+    private final S3Service s3Service;
 
     /**
      * 상품 단건 등록
@@ -47,7 +47,7 @@ public class KujiItemService {
 
         if (images != null) {
             for (int i = 0; i < images.size(); i++) {
-                String imageUrl = fileService.saveFile("items", images.get(i));
+                String imageUrl = s3Service.uploadFile("items", images.get(i));
                 KujiItemImage itemImage = KujiItemImage.builder()
                         .kujiItem(savedItem)
                         .imageUrl(imageUrl)
@@ -83,7 +83,7 @@ public class KujiItemService {
             if (images != null && images.size() > i) {
                 MultipartFile image = images.get(i);
                 if (image != null && !image.isEmpty() && image.getSize() > 0 && image.getOriginalFilename() != null && !image.getOriginalFilename().equals("empty.bin")) {
-                    String imageUrl = fileService.saveFile("items", image);
+                    String imageUrl = s3Service.uploadFile("items", image);
                     KujiItemImage itemImage = KujiItemImage.builder()
                             .kujiItem(savedItem)
                             .imageUrl(imageUrl)
@@ -120,6 +120,15 @@ public class KujiItemService {
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         
         kujiItem.validateModifiable();
+
+        List<KujiItemImage> images = kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(itemId);
+        for (KujiItemImage img : images) {
+            if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
+                s3Service.deleteFile(img.getImageUrl());
+            }
+        }
+        kujiItemImageRepository.deleteAll(images);
+
         kujiItemRepository.delete(kujiItem);
     }
 
@@ -132,11 +141,17 @@ public class KujiItemService {
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         
         if (file != null && !file.isEmpty() && file.getSize() > 0) {
-            // Delete old images
-            kujiItemImageRepository.deleteAll(kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(itemId));
+            // Delete old images from S3 and DB
+            List<KujiItemImage> oldImages = kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(itemId);
+            for (KujiItemImage img : oldImages) {
+                if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
+                    s3Service.deleteFile(img.getImageUrl());
+                }
+            }
+            kujiItemImageRepository.deleteAll(oldImages);
             
             // Save new image
-            String imageUrl = fileService.saveFile("items", file);
+            String imageUrl = s3Service.uploadFile("items", file);
             KujiItemImage itemImage = KujiItemImage.builder()
                     .kujiItem(kujiItem)
                     .imageUrl(imageUrl)

@@ -9,8 +9,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
+import net.coobird.thumbnailator.Thumbnails;
 
 @Service
 @RequiredArgsConstructor
@@ -35,13 +37,21 @@ public class S3Service {
         String fileName = category + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
 
         try {
+            // 이미지 압축 및 리사이징 (최대 1024x1024, 화질 80%)
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            Thumbnails.of(file.getInputStream())
+                    .size(1024, 1024)
+                    .outputQuality(0.8)
+                    .toOutputStream(os);
+            byte[] bytes = os.toByteArray();
+
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(fileName)
                     .contentType(file.getContentType())
                     .build();
 
-            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
 
             // 업로드된 파일의 공개 URL 반환 (CloudFront 사용 시 해당 URL로 변경 가능)
             return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, fileName);

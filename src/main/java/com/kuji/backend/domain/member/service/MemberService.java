@@ -16,7 +16,7 @@ import com.kuji.backend.global.jwt.JwtUtil;
 import com.kuji.backend.domain.member.enums.RoleType;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
-import com.kuji.backend.global.service.FileService;
+import com.kuji.backend.global.service.S3Service;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -30,7 +30,7 @@ public class MemberService {
     private final JwtUtil jwtUtil;
     private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
     private final BusinessInfoRepository businessInfoRepository;
-    private final FileService fileService;
+    private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
 
     /**
@@ -50,10 +50,14 @@ public class MemberService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 회원을 찾을 수 없습니다."));
 
-        // 이미지 파일이 있으면 S3/로컬 저장 후 URL 반환
+        // 이미지 파일이 있으면 S3에 저장 후 URL 반환
         String imageUrl = null;
         if (profileImage != null && !profileImage.isEmpty()) {
-            imageUrl = fileService.saveFile("profiles", profileImage);
+            // 기존 프로필 이미지가 S3에 있다면 쓰레기 데이터 청소 (삭제)
+            if (member.getProfileImageUrl() != null && member.getProfileImageUrl().startsWith("http")) {
+                s3Service.deleteFile(member.getProfileImageUrl());
+            }
+            imageUrl = s3Service.uploadFile("profiles", profileImage);
         }
 
         member.updateProfile(request.nickname(), imageUrl);

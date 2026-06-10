@@ -60,6 +60,7 @@ dependencies {
 
     // === 5. AWS S3 (이미지 업로드) ===
     implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:3.2.1'
+    implementation 'net.coobird:thumbnailator:0.4.20' // 이미지 압축/리사이징 용량 최적화
 
     // === 6. Firebase Admin SDK (FCM 알림 발송용) ===
     implementation 'com.google.firebase:firebase-admin:9.2.0'
