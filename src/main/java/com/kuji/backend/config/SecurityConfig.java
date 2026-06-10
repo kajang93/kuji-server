@@ -68,7 +68,9 @@ public class SecurityConfig {
                 "http://127.0.0.1:5173",
                 "capacitor://localhost",   // iOS Capacitor 앱
                 "http://localhost",         // Android Capacitor 앱
-                "ionic://localhost"          // Ionic 호환
+                "ionic://localhost",          // Ionic 호환
+                "https://kujishop.shop",
+                "https://www.kujishop.shop"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

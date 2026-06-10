@@ -51,3 +51,6 @@ firebase-service-account.json
 ### Logs ###
 logs/
 *.log
+
+### SQLTools ###
+*.session.sql
