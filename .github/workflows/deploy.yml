@@ -1,0 +1,47 @@
+name: Deploy Backend to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+        
+      - name: Copy jar to AWS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          source: "build/libs/kuji-server-0.0.1-SNAPSHOT.jar"
+          target: "~/"
+          strip_components: 2
+
+      - name: Restart Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          script: |
+            # Move the jar to the final name expected by the systemd service
+            mv ~/kuji-server-0.0.1-SNAPSHOT.jar ~/kuji-server.jar
+            sudo systemctl restart kuji-server
