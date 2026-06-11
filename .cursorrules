@@ -1,0 +1,13 @@
+# AI Assistant Rules for Kuji Server
+
+1. **Commit Messages**: 
+   - ALWAYS write commit messages purely in Korean.
+   - DO NOT use English prefixes like `feat:`, `fix:`, `chore:`, `README:`, etc.
+   - Just explain the changes clearly in Korean. (e.g., "회원가입 문자 인증 연동", "리드미 문서 업데이트")
+
+2. **Backend Development Rules**:
+   - Framework: Spring Boot 3.x, Java 25.
+   - Use standard RESTful API conventions.
+   - Handle exceptions globally via `GlobalExceptionHandler`.
+   - Never write sensitive keys in code (use `.yml` with env vars).
+   - All dates and times should use Java 8+ Date/Time APIs (e.g., `LocalDateTime`).
