@@ -36,7 +36,7 @@ public class FirebaseConfig {
                 log.info("[FirebaseConfig] Firebase Admin SDK 초기화 성공!");
             }
         } catch (Exception e) {
-            log.error("[FirebaseConfig] Firebase Admin SDK 초기화 실패: {}", e.getMessage());
+            log.warn("[FirebaseConfig] Firebase Admin SDK 초기화 실패 (기능 비활성화됨): {}", e.getMessage());
         }
     }
 }
