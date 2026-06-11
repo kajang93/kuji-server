@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class MemberController {
 
     private final MemberService memberService;
+    private final com.kuji.backend.domain.member.service.SmsVerificationService smsVerificationService;
 
     /**
      * 일반(LOCAL) 회원 가입 API
@@ -84,14 +85,12 @@ public class MemberController {
      * 인증문자 발송 API
      */
     @PostMapping("/send-sms")
-    public ResponseEntity<String> sendSms(@RequestBody java.util.Map<String, String> request, org.springframework.context.ApplicationContext context) {
+    public ResponseEntity<String> sendSms(@RequestBody java.util.Map<String, String> request) {
         String phoneNumber = request.get("phoneNumber");
         if (phoneNumber == null || phoneNumber.isBlank()) {
             return ResponseEntity.badRequest().body("전화번호가 필요합니다.");
         }
-        com.kuji.backend.domain.member.service.SmsVerificationService smsService = 
-            context.getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
-        smsService.sendVerificationCode(phoneNumber);
+        smsVerificationService.sendVerificationCode(phoneNumber);
         return ResponseEntity.ok("인증번호가 발송되었습니다.");
     }
 
@@ -99,16 +98,14 @@ public class MemberController {
      * 7. 문자 인증번호 검증 API (회원가입 용)
      */
     @PostMapping("/verify-sms")
-    public ResponseEntity<String> verifySms(@RequestBody java.util.Map<String, String> request, org.springframework.context.ApplicationContext context) {
+    public ResponseEntity<String> verifySms(@RequestBody java.util.Map<String, String> request) {
         String phoneNumber = request.get("phoneNumber");
         String code = request.get("code");
         if (phoneNumber == null || code == null) {
             return ResponseEntity.badRequest().body("전화번호와 인증번호가 필요합니다.");
         }
-        com.kuji.backend.domain.member.service.SmsVerificationService smsService = 
-            context.getBean(com.kuji.backend.domain.member.service.SmsVerificationService.class);
         
-        boolean isValid = smsService.verifyCode(phoneNumber, code);
+        boolean isValid = smsVerificationService.verifyCode(phoneNumber, code);
         if (isValid) {
             return ResponseEntity.ok("인증되었습니다.");
         } else {

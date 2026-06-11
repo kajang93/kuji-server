@@ -83,11 +83,22 @@ public class SmsVerificationService {
 
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity("https://apis.aligo.in/send/", request, String.class);
+            String responseBody = response.getBody();
 
-            businessLogger.info("[SMS_SEND_SUCCESS] mock=false, receiver={}, response=\"{}\"", phoneNumber, response.getBody());
+            // 알리고 API는 에러가 나도 HTTP 200 OK를 반환하고 JSON 안에 음수 result_code를 내려줄 때가 있습니다.
+            if (responseBody != null && responseBody.contains("\"result_code\":-") || (responseBody != null && responseBody.contains("\"result_code\":\"-"))) {
+                businessLogger.error("[SMS_SEND_FAIL] receiver={}, response=\"{}\"", phoneNumber, responseBody);
+                throw new RuntimeException("알리고 발송 거절: " + responseBody);
+            }
+
+            businessLogger.info("[SMS_SEND_SUCCESS] mock=false, receiver={}, response=\"{}\"", phoneNumber, responseBody);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String aligoError = e.getResponseBodyAsString();
+            businessLogger.error("[SMS_SEND_FAIL] receiver={}, HttpError=\"{}\"", phoneNumber, aligoError);
+            throw new RuntimeException("알리고 서버 에러: " + aligoError);
         } catch (Exception e) {
             businessLogger.error("[SMS_SEND_FAIL] receiver={}, reason=\"{}\"", phoneNumber, e.getMessage());
-            throw new RuntimeException("SMS 발송에 실패했습니다. 관리자에게 문의하세요.");
+            throw new RuntimeException("SMS 전송 시스템 에러: " + e.getMessage());
         }
     }
 
