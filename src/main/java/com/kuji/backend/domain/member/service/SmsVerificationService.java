@@ -12,6 +12,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Random;
@@ -19,6 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.kuji.backend.domain.member.entity.SmsLog;
+import com.kuji.backend.domain.member.repository.SmsLogRepository;
 
 @Slf4j
 @Service
@@ -37,6 +41,7 @@ public class SmsVerificationService {
     private String aligoSender;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final SmsLogRepository smsLogRepository;
 
     // 휴대폰 번호 -> {인증코드, 생성시간}
     private final Map<String, VerificationData> verificationStore = new ConcurrentHashMap<>();
@@ -55,6 +60,13 @@ public class SmsVerificationService {
      * 알리고 SMS API를 통해 인증번호를 발송합니다.
      */
     public void sendVerificationCode(String phoneNumber) {
+        // 0. 하루 최대 발송 횟수(3회) 체크
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        long todayCount = smsLogRepository.countByPhoneNumberAndCreatedAtAfter(phoneNumber, startOfDay);
+        if (todayCount >= 3) {
+            throw new IllegalArgumentException("하루 최대 인증 문자 발송 횟수(3회)를 초과했습니다. 내일 다시 시도해주세요.");
+        }
+
         // 1. 6자리 난수 생성
         String verificationCode = String.format("%06d", new Random().nextInt(1000000));
         
@@ -65,6 +77,7 @@ public class SmsVerificationService {
 
         // 3. API 키가 mock이면 실제 발송을 생략하고 로그만 찍습니다.
         if ("mock".equals(aligoApiKey)) {
+            smsLogRepository.save(new SmsLog(phoneNumber));
             businessLogger.info("[SMS_SEND_SUCCESS] mock=true, receiver={}, message=\"{}\"", phoneNumber, message);
             return;
         }
@@ -90,6 +103,9 @@ public class SmsVerificationService {
                 businessLogger.error("[SMS_SEND_FAIL] receiver={}, response=\"{}\"", phoneNumber, responseBody);
                 throw new IllegalArgumentException("알리고 발송 거절: " + responseBody);
             }
+
+            // 5. 성공 시 DB에 로그 저장
+            smsLogRepository.save(new SmsLog(phoneNumber));
 
             businessLogger.info("[SMS_SEND_SUCCESS] mock=false, receiver={}, response=\"{}\"", phoneNumber, responseBody);
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
