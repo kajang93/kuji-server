@@ -1,13 +1,13 @@
-# AI Assistant Rules for Kuji Server
+# 이치방쿠지 서버(백엔드) AI 전역 규칙
 
-1. **Commit Messages**: 
-   - ALWAYS write commit messages purely in Korean.
-   - DO NOT use English prefixes like `feat:`, `fix:`, `chore:`, `README:`, etc.
-   - Just explain the changes clearly in Korean. (e.g., "회원가입 문자 인증 연동", "리드미 문서 업데이트")
+1. **커밋 메시지 규칙 (가장 중요)**: 
+   - 모든 커밋 메시지는 **반드시 100% 한글**로만 작성하세요.
+   - `feat:`, `fix:`, `chore:`, `README:` 등 영어로 된 접두사를 **절대 사용하지 마세요**.
+   - 변경 사항을 한글로 명확하게 풀어서 설명하세요. (예: "회원가입 문자 인증 연동 완료", "리드미 문서 기능 업데이트")
 
-2. **Backend Development Rules**:
-   - Framework: Spring Boot 3.x, Java 25.
-   - Use standard RESTful API conventions.
-   - Handle exceptions globally via `GlobalExceptionHandler`.
-   - Never write sensitive keys in code (use `.yml` with env vars).
-   - All dates and times should use Java 8+ Date/Time APIs (e.g., `LocalDateTime`).
+2. **백엔드 개발 규칙**:
+   - `Spring Boot 3.x` 프레임워크와 `Java 25` 버전을 기준 표준으로 사용합니다.
+   - API는 표준 `RESTful` 설계 원칙을 준수하여 작성하세요.
+   - 예외(에러) 처리는 `GlobalExceptionHandler`를 통해 전역적으로 한 번에 처리하세요.
+   - 보안 키워드나 민감한 정보는 소스코드에 직접 적지 말고 `application-secret.yml` 등의 환경 변수를 활용하세요.
+   - 모든 날짜 및 시간 데이터 처리는 Java 8+ 버전의 `LocalDateTime` 같은 최신 API를 사용하세요.
