@@ -115,6 +115,16 @@ public class KujiBoardService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 특정 판매자의 쿠지 판 목록 조회 (본인이 등록한 것만)
+     */
+    public List<KujiBoardResponse> getSellerBoards(Long sellerId) {
+        Member member = memberRepository.findById(sellerId).orElse(null);
+        return kujiBoardRepository.findByMemberId(sellerId).stream()
+                .map(board -> convertToResponse(board, member))
+                .collect(Collectors.toList());
+    }
+
     private KujiBoardResponse convertToResponse(KujiBoard board, Member member) {
         List<KujiBoardImage> images = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(board.getId());
         List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(board.getId());

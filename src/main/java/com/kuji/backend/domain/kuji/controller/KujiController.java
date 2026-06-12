@@ -36,6 +36,15 @@ public class KujiController {
     }
 
     /**
+     * 판매자 본인의 쿠지 판 목록 조회
+     */
+    @GetMapping("/seller")
+    public ResponseEntity<List<KujiBoardResponse>> getSellerBoards(Authentication authentication) {
+        Long memberId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(kujiBoardService.getSellerBoards(memberId));
+    }
+
+    /**
      * 쿠지 판 상세 조회 (상품 목록 포함)
      */
     @GetMapping("/{id}")
