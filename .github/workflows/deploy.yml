@@ -51,6 +51,10 @@ jobs:
           username: ${{ secrets.AWS_USERNAME }}
           key: ${{ secrets.AWS_PRIVATE_KEY }}
           script: |
+            # Nginx 업로드 용량 제한 해제 (413 Request Entity Too Large 에러 방지)
+            echo "client_max_body_size 50M;" | sudo tee /etc/nginx/conf.d/upload_size.conf
+            sudo systemctl reload nginx
+            
             # Move the jar to the final name expected by the systemd service
             mv ~/kuji-server-0.0.1-SNAPSHOT.jar ~/kuji-server.jar
             sudo systemctl restart kuji-server
