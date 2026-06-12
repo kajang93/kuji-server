@@ -110,7 +110,7 @@ public class KujiBoardService {
     public List<KujiBoardResponse> getAllBoards(Long memberId) {
         Member member = memberId != null ? memberRepository.findById(memberId).orElse(null) : null;
         
-        return kujiBoardRepository.findAll().stream()
+        return kujiBoardRepository.findByStatus(com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE).stream()
                 .map(board -> convertToResponse(board, member))
                 .collect(Collectors.toList());
     }
@@ -137,6 +137,25 @@ public class KujiBoardService {
             throw new IllegalArgumentException("해당 상품을 삭제할 권한이 없습니다.");
         }
 
+        // 1. S3에서 KujiBoard 이미지 파일 삭제
+        List<KujiBoardImage> boardImages = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(boardId);
+        for (KujiBoardImage img : boardImages) {
+            if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
+                s3Service.deleteFile(img.getImageUrl());
+            }
+        }
+
+        // 2. S3에서 속한 KujiItem들의 이미지 파일 삭제
+        List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+        for (KujiItem item : items) {
+            for (com.kuji.backend.domain.kuji.entity.KujiItemImage itemImg : item.getKujiItemImages()) {
+                if (itemImg.getImageUrl() != null && itemImg.getImageUrl().startsWith("http")) {
+                    s3Service.deleteFile(itemImg.getImageUrl());
+                }
+            }
+        }
+
+        // 3. DB 데이터 삭제
         kujiItemRepository.deleteAllByKujiBoardId(boardId);
         kujiBoardImageRepository.deleteAllByKujiBoardId(boardId);
         wishlistRepository.deleteAllByKujiBoard(board);
