@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface KujiBoardImageRepository extends JpaRepository<KujiBoardImage, Long> {
     List<KujiBoardImage> findAllByKujiBoardIdOrderBySequenceAsc(Long kujiBoardId);
+    void deleteAllByKujiBoardId(Long kujiBoardId);
 }

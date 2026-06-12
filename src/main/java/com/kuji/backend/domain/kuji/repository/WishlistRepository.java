@@ -13,4 +13,5 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     List<Wishlist> findAllByMemberOrderByCreatedAtDesc(Member member);
     List<Wishlist> findAllByKujiBoard(KujiBoard kujiBoard);
     boolean existsByMemberAndKujiBoard(Member member, KujiBoard kujiBoard);
+    void deleteAllByKujiBoard(KujiBoard kujiBoard);
 }

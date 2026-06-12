@@ -125,6 +125,24 @@ public class KujiBoardService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 쿠지 판 삭제
+     */
+    @Transactional
+    public void deleteBoard(Long boardId, Long memberId) {
+        KujiBoard board = kujiBoardRepository.findById(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        
+        if (!board.getMember().getId().equals(memberId)) {
+            throw new IllegalArgumentException("해당 상품을 삭제할 권한이 없습니다.");
+        }
+
+        kujiItemRepository.deleteAllByKujiBoardId(boardId);
+        kujiBoardImageRepository.deleteAllByKujiBoardId(boardId);
+        wishlistRepository.deleteAllByKujiBoard(board);
+        kujiBoardRepository.delete(board);
+    }
+
     private KujiBoardResponse convertToResponse(KujiBoard board, Member member) {
         List<KujiBoardImage> images = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(board.getId());
         List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(board.getId());

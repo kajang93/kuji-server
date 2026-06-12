@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface KujiItemRepository extends JpaRepository<KujiItem, Long> {
     List<KujiItem> findAllByKujiBoardIdOrderByGradeAsc(Long kujiBoardId);
+    void deleteAllByKujiBoardId(Long kujiBoardId);
 }
