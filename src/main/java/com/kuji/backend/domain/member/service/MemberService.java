@@ -155,12 +155,15 @@ public class MemberService {
                         throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
                     }
 
+                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 기본 닉네임 부여
+                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "카카오유저_" + socialId.substring(0, 6);
+
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
                             .socialType(SocialType.KAKAO)
                             .socialId(socialId)
                             .email(email)
-                            .nickname(nickname)
+                            .nickname(finalNickname)
                             .profileImageUrl(profileImageUrl)
                             .isTermsAgreed(request.getIsTermsAgreed())
                             .isPrivacyAgreed(request.getIsPrivacyAgreed())
@@ -226,12 +229,15 @@ public class MemberService {
                         throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
                     }
 
+                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 기본 닉네임 부여
+                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "네이버유저_" + socialId.substring(0, 6);
+
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
                             .socialType(SocialType.NAVER)
                             .socialId(socialId)
                             .email(email)
-                            .nickname(nickname)
+                            .nickname(finalNickname)
                             .profileImageUrl(profileImageUrl)
                             .isTermsAgreed(request.getIsTermsAgreed())
                             .isPrivacyAgreed(request.getIsPrivacyAgreed())
