@@ -123,10 +123,7 @@ public class MemberService {
         String adjective = ADJECTIVES[random.nextInt(ADJECTIVES.length)];
         String noun = NOUNS[random.nextInt(NOUNS.length)];
         
-        // 고유성을 높이기 위해 4자리 랜덤 숫자 추가 (예: 행운이 가득한 다람쥐 8291)
-        int randomNumber = 1000 + random.nextInt(9000); 
-        
-        return adjective + " " + noun + " " + randomNumber;
+        return adjective + " " + noun;
     }
 
     /**
