@@ -44,6 +44,15 @@ public class MemberController {
     }
 
     /**
+     * 네이버(NAVER) 로그인 API
+     */
+    @PostMapping("/login/naver")
+    public ResponseEntity<LoginResponse> naverLogin(@RequestBody NaverLoginRequest request) {
+        LoginResponse response = memberService.loginByNaver(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 내 정보 조회 API (토큰 필수!)
      */
     @GetMapping("/me")
