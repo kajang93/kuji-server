@@ -107,6 +107,28 @@ public class MemberService {
         return java.util.Objects.requireNonNull(savedMember).getId();
     }
 
+    // 💡 랜덤 닉네임 생성기 (최신 트렌드 반영)
+    private String generateRandomNickname() {
+        String[] ADJECTIVES = {
+                "행운이 가득한", "대박을 기원하는", "신의 손을 가진", "금손 인증을 받은", 
+                "쿠지를 사랑하는", "매일매일 신나는", "가챠에 진심인", "행복을 부르는",
+                "A상을 노리는", "원패스를 꿈꾸는", "두근두근 설레는", "열정 넘치는"
+        };
+        String[] NOUNS = {
+                "다람쥐", "고양이", "너구리", "강아지", "오리", 
+                "알파카", "쿼카", "토끼", "올빼미", "쿠지러", "행운요정"
+        };
+        
+        java.util.Random random = new java.util.Random();
+        String adjective = ADJECTIVES[random.nextInt(ADJECTIVES.length)];
+        String noun = NOUNS[random.nextInt(NOUNS.length)];
+        
+        // 고유성을 높이기 위해 4자리 랜덤 숫자 추가 (예: 행운이 가득한 다람쥐 8291)
+        int randomNumber = 1000 + random.nextInt(9000); 
+        
+        return adjective + " " + noun + " " + randomNumber;
+    }
+
     /**
      * 카카오 로그인 (신규 가입 시 약관 동의 절차 포함)
      */
@@ -155,8 +177,8 @@ public class MemberService {
                         throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
                     }
 
-                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 기본 닉네임 부여
-                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "카카오유저_" + socialId.substring(0, 6);
+                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 귀여운 랜덤 닉네임 부여
+                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : generateRandomNickname();
 
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
@@ -229,8 +251,8 @@ public class MemberService {
                         throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
                     }
 
-                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 기본 닉네임 부여
-                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "네이버유저_" + socialId.substring(0, 6);
+                    // 닉네임이 제공되지 않았을 경우 (선택 안함) 귀여운 랜덤 닉네임 부여
+                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : generateRandomNickname();
 
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
