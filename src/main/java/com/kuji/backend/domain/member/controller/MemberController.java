@@ -53,6 +53,15 @@ public class MemberController {
     }
 
     /**
+     * 구글(GOOGLE) 로그인 API
+     */
+    @PostMapping("/login/google")
+    public ResponseEntity<LoginResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
+        LoginResponse response = memberService.loginByGoogle(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 내 정보 조회 API (토큰 필수!)
      */
     @GetMapping("/me")

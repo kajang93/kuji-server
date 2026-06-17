@@ -48,7 +48,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.web.cors.CorsUtils::isPreFlightRequest).permitAll()
-                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao", "/api/members/login/naver", "/error").permitAll()
+                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao", "/api/members/login/naver", "/api/members/login/google", "/error").permitAll()
                         .requestMatchers("/api/members/check-email", "/api/members/find-id", "/api/members/send-sms", "/api/members/verify-sms", "/api/members/reset-password").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**", "/api/posts", "/api/posts/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()

@@ -17,6 +17,9 @@ import com.kuji.backend.domain.member.enums.RoleType;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
 import com.kuji.backend.global.service.S3Service;
+import com.kuji.backend.global.infra.kakao.KakaoClient;
+import com.kuji.backend.global.infra.naver.NaverClient;
+import com.kuji.backend.global.infra.google.GoogleClient;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -28,8 +31,9 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final com.kuji.backend.global.infra.kakao.KakaoClient kakaoClient;
-    private final com.kuji.backend.global.infra.naver.NaverClient naverClient;
+    private final KakaoClient kakaoClient;
+    private final NaverClient naverClient;
+    private final GoogleClient googleClient;
     private final BusinessInfoRepository businessInfoRepository;
     private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
@@ -254,6 +258,80 @@ public class MemberService {
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
                             .socialType(SocialType.NAVER)
+                            .socialId(socialId)
+                            .email(email)
+                            .nickname(finalNickname)
+                            .profileImageUrl(profileImageUrl)
+                            .isTermsAgreed(request.getIsTermsAgreed())
+                            .isPrivacyAgreed(request.getIsPrivacyAgreed())
+                            .isMarketingAgreed(
+                                    request.getIsMarketingAgreed() != null ? request.getIsMarketingAgreed() : false)
+                            .build();
+
+                    Member savedMember = memberRepository.save(newMember);
+                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail(), savedMember.getRole().name());
+
+                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                            .token(jwtToken)
+                            .isNewUser(true)
+                            .build();
+                });
+    }
+
+    /**
+     * 구글 로그인 (신규 가입 시 약관 동의 절차 포함)
+     */
+    @Transactional
+    public com.kuji.backend.domain.member.dto.LoginResponse loginByGoogle(
+            com.kuji.backend.domain.member.dto.GoogleLoginRequest request) {
+        // 1. 구글 서버에서 사용자 정보 가져오기
+        var userInfo = googleClient.getGoogleUserInfo(request.getGoogleAccessToken());
+        String socialId = userInfo.getId();
+        String email = userInfo.getEmail();
+        String nickname = userInfo.getNickname();
+        String profileImageUrl = userInfo.getProfileImageUrl();
+
+        System.out.println("🔔 [Google-Login] 구글 사용자 정보 수신 - ID: " + socialId + ", 이메일: " + email);
+
+        // 2. 기존 가입자인지 확인
+        return memberRepository.findBySocialTypeAndSocialId(SocialType.GOOGLE, socialId)
+                .map(member -> {
+                    System.out.println("🔔 [Google-Login] 기존 회원 로그인 - ID: " + member.getId());
+                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
+                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                            .token(jwtToken)
+                            .isNewUser(false)
+                            .email(member.getEmail())
+                            .nickname(member.getNickname())
+                            .profileImageUrl(member.getProfileImageUrl())
+                            .build();
+                })
+                .orElseGet(() -> {
+                    // 3. 신규 회원일 경우 -> 약관 동의 체크 여부 확인
+                    if (request.getIsTermsAgreed() == null || !request.getIsTermsAgreed()) {
+                        System.out.println("🔔 [Google-Login] 신규 회원 - 약관 동의 필요");
+                        return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                                .token(null)
+                                .isNewUser(true)
+                                .email(email)
+                                .nickname(nickname)
+                                .profileImageUrl(profileImageUrl)
+                                .build();
+                    }
+
+                    // 4. 약관 동의가 확인되면 회원 가입 진행
+                    System.out.println("🔔 [Google-Login] 신규 회원 - 회원가입 완료");
+
+                    if (email != null && !email.isEmpty() && memberRepository.findByEmail(email).isPresent()) {
+                        throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
+                    }
+
+                    // 닉네임이 제공되지 않았을 경우 기본 닉네임 부여
+                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "구글유저_" + socialId.substring(0, 6);
+
+                    Member newMember = Member.builder()
+                            .role(com.kuji.backend.domain.member.enums.RoleType.USER)
+                            .socialType(SocialType.GOOGLE)
                             .socialId(socialId)
                             .email(email)
                             .nickname(finalNickname)
