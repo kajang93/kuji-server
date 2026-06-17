@@ -65,6 +65,7 @@ public class KujiDrawService {
     private final TossPaymentClient tossPaymentClient;
     private final PaymentRepository paymentRepository;
     private final PaymentSessionRepository paymentSessionRepository;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     /**
      * PG 결제 준비 (세션 생성)
@@ -220,6 +221,20 @@ public class KujiDrawService {
                     
                     businessLogger.info("[DRAW_SUCCESS] memberId={}, boardId={}, grade={}, itemName={}",
                             memberId, boardId, item.getGrade(), item.getName());
+
+                    // WebSocket 실시간 티커 전송 (A상~C상, Last One)
+                    String grade = item.getGrade().toUpperCase();
+                    if (grade.startsWith("A") || grade.startsWith("B") || grade.startsWith("C") || grade.contains("LAST")) {
+                        RecentDrawResponse tickerDto = RecentDrawResponse.builder()
+                                .maskedNickname(maskNickname(member.getNickname()))
+                                .boardTitle(board.getTitle())
+                                .grade(item.getGrade())
+                                .itemName(item.getName())
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                        messagingTemplate.convertAndSend("/topic/draw-ticker", tickerDto);
+                    }
+
                     break;
                 }
             }
