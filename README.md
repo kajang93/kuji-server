@@ -20,7 +20,7 @@
 
 #### 🚧 기술 부채 및 추후 고도화 예정 작업
 - **JWT Refresh Token 도입**: 현재 사용자 편의성을 위해 Access Token 만료일을 임시 완화(1주일)해 두었으나, 보안 강화를 위해 Refresh Token을 도입하고 Access Token 수명을 단축할 예정
-- **실시간 알림 (WebSocket)**: 현재 프론트엔드의 당첨 티커(Live Ticker)가 1분 주기 API 폴링(Polling) 방식으로 동작 중. 이를 WebSocket/STOMP 기반의 실시간 Push 방식으로 고도화 예정
+- **실시간 알림 (WebSocket) (완료)**: 기존 1분 주기 폴링(Polling) 방식에서 STOMP 기반 실시간 Push 방식으로 고도화 완료. 고급 상품(A~C상, Last One) 당첨 시 접속 중인 전체 유저에게 0.1초 만에 당첨 티커 알림 발송.
 
 ---
 
