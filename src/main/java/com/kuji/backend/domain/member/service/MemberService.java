@@ -326,8 +326,8 @@ public class MemberService {
                         throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
                     }
 
-                    // 닉네임이 제공되지 않았을 경우 기본 닉네임 부여
-                    String finalNickname = (nickname != null && !nickname.isEmpty()) ? nickname : "구글유저_" + socialId.substring(0, 6);
+                    // 구글은 실명이 넘어오는 경우가 많으므로 개인정보 보호를 위해 무조건 귀여운 랜덤 닉네임 부여
+                    String finalNickname = generateRandomNickname();
 
                     Member newMember = Member.builder()
                             .role(com.kuji.backend.domain.member.enums.RoleType.USER)
