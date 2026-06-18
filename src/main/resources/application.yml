@@ -32,7 +32,8 @@ jwt:
   # 💡 우리 서버만의 비밀키 (환경변수 또는 application-secret.yml 주입)
   secret: ${JWT_SECRET_KEY}
   # 💡 토큰 유효 시간 (밀리초 단위, 30분 = 1800000)
-  expiration: 1800000
+  #expiration: 1800000
+  expiration: 300000
   # 💡 리프레시 토큰 유효 시간 (밀리초 단위, 14일 = 1209600000)
   refresh-expiration: 1209600000
 

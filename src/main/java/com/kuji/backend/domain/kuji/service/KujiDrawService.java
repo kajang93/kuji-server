@@ -79,12 +79,23 @@ public class KujiDrawService {
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
                 
         int count = (request.getCount() != null) ? request.getCount() : 1;
-        int amount = (int) (board.getPricePerDraw() * count);
+        int pointsUsed = (request.getPointsUsed() != null) ? request.getPointsUsed() : 0;
+        
+        if (pointsUsed > 0 && member.getPoint() < pointsUsed) {
+            throw new IllegalArgumentException("포인트가 부족합니다.");
+        }
+        
+        int totalOriginalAmount = (int) (board.getPricePerDraw() * count);
+        if (pointsUsed > totalOriginalAmount) {
+            pointsUsed = totalOriginalAmount;
+        }
+        
+        int amount = totalOriginalAmount - pointsUsed;
         String orderId = "KUJI-" + UUID.randomUUID().toString();
         
         String metadata = String.format(
-                "{\"type\":\"KUJI_DRAW\",\"boardId\":%d,\"count\":%d,\"pointsUsed\":0}",
-                boardId, count);
+                "{\"type\":\"KUJI_DRAW\",\"boardId\":%d,\"count\":%d,\"pointsUsed\":%d}",
+                boardId, count, pointsUsed);
 
         PaymentSession session = PaymentSession.builder()
                 .member(member)
@@ -124,9 +135,11 @@ public class KujiDrawService {
         // 1-1. 결제 처리 분기
         int totalRequiredAmount = (int) (board.getPricePerDraw() * count);
         Payment savedPayment = null;
+        int usedPoints = 0;
 
         if (request.getPaymentType() == PaymentType.POINT) {
             // 포인트 결제: 잔여 포인트 차감 시도
+            usedPoints = totalRequiredAmount;
             member.deductPoint(totalRequiredAmount); 
         } else if (request.getPaymentType() == PaymentType.PG) {
             // PG 결제: 넘어온 orderId로 결제 세션 검증
@@ -158,8 +171,23 @@ public class KujiDrawService {
                 throw e;
             }
             
-            // 승인 성공: 세션 상태 변경 (CONSUMED 처리) -> (최종 뽑기 완료 후 COMPLETED는 생략하거나 이후 업데이트, 여기선 편의상 바로 COMPLETED)
+            // 승인 성공: 세션 상태 변경
             session.updateStatus(SessionStatus.COMPLETED);
+            
+            // metadata에서 pointsUsed 파싱 및 차감
+            if (session.getMetadata() != null && session.getMetadata().contains("\"pointsUsed\":")) {
+                try {
+                    String md = session.getMetadata();
+                    int idx = md.indexOf("\"pointsUsed\":") + 13;
+                    int endIdx = md.indexOf("}", idx);
+                    usedPoints = Integer.parseInt(md.substring(idx, endIdx).trim());
+                    if (usedPoints > 0) {
+                        member.deductPoint(usedPoints);
+                    }
+                } catch (Exception e) {
+                    businessLogger.warn("[POINT_DEDUCTION_FAIL] Failed to parse pointsUsed from metadata: {}", session.getMetadata());
+                }
+            }
             
             // 결제 성공 시 결제(영수증) 내역 저장
             Payment payment = Payment.builder()
@@ -243,11 +271,11 @@ public class KujiDrawService {
         DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
 
         // 3-1. 포인트 결제인 경우 '사용' 내역 기록
-        if (request.getPaymentType() == PaymentType.POINT && firstHistory != null) {
+        if (usedPoints > 0 && firstHistory != null) {
             PointHistory useHistory = PointHistory.builder()
                     .member(member)
                     .drawHistory(firstHistory) // NOT NULL 우회를 위해 첫 번째 추첨내역 연결
-                    .amount(totalRequiredAmount)
+                    .amount(usedPoints)
                     .type(PointType.USE)
                     .description(String.format("[%s] %d회 뽑기 포인트 결제", board.getTitle(), count))
                     .appliedRewardRate(0)
