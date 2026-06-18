@@ -434,7 +434,7 @@ public class MemberService {
      * 리프레시 토큰 검증 및 새 액세스 토큰 발급
      */
     @Transactional
-    public String refreshAccessToken(String refreshTokenStr) {
+    public com.kuji.backend.domain.member.dto.LoginResponse refreshAccessToken(String refreshTokenStr) {
         // 1. 토큰 유효성 검증
         if (!jwtUtil.validateToken(refreshTokenStr)) {
             return null; // 만료되거나 손상된 토큰
@@ -456,13 +456,14 @@ public class MemberService {
             return null; // DB 상 만료됨
         }
 
-        // 4. 회원 확인 및 새 액세스 토큰 발급
+        // 4. 회원 확인 및 새 액세스/리프레시 토큰 발급 (Token Rotation)
         Member member = memberRepository.findById(memberId).orElse(null);
         if (member == null) {
             return null;
         }
 
-        return jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
+        // generateLoginResponse 내부에서 기존 리프레시 토큰 삭제(폐기) 및 새 토큰 저장을 자동으로 수행함
+        return generateLoginResponse(member, false);
     }
 
     /**

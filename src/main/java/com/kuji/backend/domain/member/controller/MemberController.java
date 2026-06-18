@@ -89,22 +89,27 @@ public class MemberController {
      * 리프레시 토큰으로 액세스 토큰 재발급 API
      */
     @PostMapping("/refresh")
-    public ResponseEntity<String> refreshToken(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
+    public ResponseEntity<LoginResponse> refreshToken(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
-            return ResponseEntity.status(401).body("Refresh token is missing.");
+            return ResponseEntity.status(401).build();
         }
         
-        String newAccessToken = memberService.refreshAccessToken(refreshToken);
-        if (newAccessToken == null) {
+        LoginResponse response = memberService.refreshAccessToken(refreshToken);
+        if (response == null) {
             // 리프레시 토큰이 만료되었거나 유효하지 않음 -> 쿠키 삭제 (로그아웃 처리)
             ResponseCookie deleteCookie = ResponseCookie.from("refresh_token", "")
                     .httpOnly(true).secure(true).sameSite("None").path("/").maxAge(0).build();
             return ResponseEntity.status(401)
                     .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
-                    .body("Refresh token is invalid or expired.");
+                    .build();
         }
         
-        return ResponseEntity.ok(newAccessToken);
+        // 새 리프레시 토큰을 쿠키에 설정 (Token Rotation)
+        ResponseCookie newRefreshCookie = createRefreshTokenCookie(response.getRefreshToken());
+        
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, newRefreshCookie.toString())
+                .body(response);
     }
 
     /**
