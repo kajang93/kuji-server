@@ -12,7 +12,11 @@ import com.kuji.backend.domain.shipping.entity.Shipping;
 public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> {
     List<DrawHistory> findAllByMemberIdOrderByCreatedAtDesc(Long memberId);
     List<DrawHistory> findAllByShipping(Shipping shipping); // 배송 꾸러미별 상품 조회용 추가
-    List<DrawHistory> findTop20ByOrderByCreatedAtDesc(); // 티커용 최신 20건 조회
+    List<DrawHistory> findTop20ByOrderByCreatedAtDesc(); // 티커용 최신 20건 조회 (기존)
+
+    // 티커용 상위 등상(A, B, C, Last) 최신 내역 조회
+    @org.springframework.data.jpa.repository.Query("SELECT d FROM DrawHistory d WHERE d.kujiItem.grade LIKE 'A%' OR d.kujiItem.grade LIKE 'B%' OR d.kujiItem.grade LIKE 'C%' OR UPPER(d.kujiItem.grade) LIKE '%LAST%' ORDER BY d.createdAt DESC")
+    List<DrawHistory> findRecentHighGradeDraws(org.springframework.data.domain.Pageable pageable);
 
     // [Seller] 사업자의 쿠지판에서 발생한 배송 대기 등 특정 상태의 내역 건수 조회
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(d) FROM DrawHistory d WHERE d.kujiBoard.member.id = :sellerId AND d.status = :status")

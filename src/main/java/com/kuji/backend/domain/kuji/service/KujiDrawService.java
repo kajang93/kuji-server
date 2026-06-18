@@ -371,8 +371,8 @@ public class KujiDrawService {
      * 전역 최근 당첨 내역 조회 (티커용)
      */
     public List<RecentDrawResponse> getRecentDrawHistory() {
-        // 최신 20건 조회
-        List<DrawHistory> histories = drawHistoryRepository.findTop20ByOrderByCreatedAtDesc();
+        // 최신 20건 중 A, B, C, Last 상만 조회 (티커는 하위 상을 노출하지 않음)
+        List<DrawHistory> histories = drawHistoryRepository.findRecentHighGradeDraws(org.springframework.data.domain.PageRequest.of(0, 20));
 
         return histories.stream()
                 .map(h -> RecentDrawResponse.builder()
