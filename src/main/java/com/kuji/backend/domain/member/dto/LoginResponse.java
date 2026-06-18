@@ -7,6 +7,10 @@ import lombok.Getter;
 @Builder
 public class LoginResponse {
     private String token;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String refreshToken;
+
     private Boolean isNewUser;
     
     // 신규 가입 시 필요한 닉네임, 이메일 등의 정보를 미리 보내줄 수 있습니다.

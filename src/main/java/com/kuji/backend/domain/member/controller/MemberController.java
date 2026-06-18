@@ -5,6 +5,8 @@ import com.kuji.backend.domain.member.enums.SocialType;
 import com.kuji.backend.domain.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,9 +31,12 @@ public class MemberController {
      * 일반(LOCAL) 회원 로그인 API
      */
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody LoginRequest request) {
-        String token = memberService.login(request);
-        return ResponseEntity.ok(token);
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        LoginResponse response = memberService.login(request);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
     }
 
     /**
@@ -40,7 +45,10 @@ public class MemberController {
     @PostMapping("/login/kakao")
     public ResponseEntity<LoginResponse> kakaoLogin(@RequestBody KakaoLoginRequest request) {
         LoginResponse response = memberService.loginByKakao(request);
-        return ResponseEntity.ok(response);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
     }
 
     /**
@@ -49,7 +57,10 @@ public class MemberController {
     @PostMapping("/login/naver")
     public ResponseEntity<LoginResponse> naverLogin(@RequestBody NaverLoginRequest request) {
         LoginResponse response = memberService.loginByNaver(request);
-        return ResponseEntity.ok(response);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
     }
 
     /**
@@ -58,7 +69,57 @@ public class MemberController {
     @PostMapping("/login/google")
     public ResponseEntity<LoginResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
         LoginResponse response = memberService.loginByGoogle(request);
-        return ResponseEntity.ok(response);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
+    }
+
+    private ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from("refresh_token", refreshToken)
+                .httpOnly(true)
+                .secure(true) // HTTPS 통신에서만 전송
+                .sameSite("None") // CORS 환경에서 쿠키 전송 허용
+                .path("/")
+                .maxAge(14 * 24 * 60 * 60) // 14일
+                .build();
+    }
+
+    /**
+     * 리프레시 토큰으로 액세스 토큰 재발급 API
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<String> refreshToken(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(401).body("Refresh token is missing.");
+        }
+        
+        String newAccessToken = memberService.refreshAccessToken(refreshToken);
+        if (newAccessToken == null) {
+            // 리프레시 토큰이 만료되었거나 유효하지 않음 -> 쿠키 삭제 (로그아웃 처리)
+            ResponseCookie deleteCookie = ResponseCookie.from("refresh_token", "")
+                    .httpOnly(true).secure(true).sameSite("None").path("/").maxAge(0).build();
+            return ResponseEntity.status(401)
+                    .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                    .body("Refresh token is invalid or expired.");
+        }
+        
+        return ResponseEntity.ok(newAccessToken);
+    }
+
+    /**
+     * 로그아웃 (쿠키 삭제 및 DB 리프레시 토큰 삭제)
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@AuthenticationPrincipal String memberId) {
+        if (memberId != null) {
+            memberService.logout(Long.valueOf(memberId));
+        }
+        ResponseCookie deleteCookie = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true).secure(true).sameSite("None").path("/").maxAge(0).build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                .body("Logged out successfully");
     }
 
     /**

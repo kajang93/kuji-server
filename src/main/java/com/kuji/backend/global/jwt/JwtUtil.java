@@ -14,12 +14,27 @@ public class JwtUtil {
 
     private final SecretKey secretKey;
     private final long expirationTime;
+    private final long refreshExpirationTime;
 
     public JwtUtil(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long expirationTime) {
+            @Value("${jwt.expiration}") long expirationTime,
+            @Value("${jwt.refresh-expiration}") long refreshExpirationTime) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationTime = expirationTime;
+        this.refreshExpirationTime = refreshExpirationTime;
+    }
+
+    /**
+     * 리프레시 토큰(신분증)을 굽는 메서드
+     */
+    public String createRefreshToken(Long memberId) {
+        return Jwts.builder()
+                .subject(String.valueOf(memberId))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshExpirationTime))
+                .signWith(secretKey)
+                .compact();
     }
 
     /**

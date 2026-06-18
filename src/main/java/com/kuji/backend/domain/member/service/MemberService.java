@@ -37,6 +37,30 @@ public class MemberService {
     private final BusinessInfoRepository businessInfoRepository;
     private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
+    private final com.kuji.backend.domain.member.repository.RefreshTokenRepository refreshTokenRepository;
+
+    private com.kuji.backend.domain.member.dto.LoginResponse generateLoginResponse(Member member, boolean isNewUser) {
+        String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
+        String refreshTokenStr = jwtUtil.createRefreshToken(member.getId());
+
+        com.kuji.backend.domain.member.entity.RefreshToken refreshToken = refreshTokenRepository.findByMemberId(member.getId())
+                .orElse(com.kuji.backend.domain.member.entity.RefreshToken.builder()
+                        .memberId(member.getId())
+                        .build());
+        
+        java.time.LocalDateTime expiresAt = java.time.LocalDateTime.now().plusDays(14);
+        refreshToken.updateToken(refreshTokenStr, expiresAt);
+        refreshTokenRepository.save(refreshToken);
+
+        return com.kuji.backend.domain.member.dto.LoginResponse.builder()
+                .token(accessToken)
+                .refreshToken(refreshTokenStr)
+                .isNewUser(isNewUser)
+                .email(member.getEmail())
+                .nickname(member.getNickname())
+                .profileImageUrl(member.getProfileImageUrl())
+                .build();
+    }
 
     /**
      * 내 정보 조회
@@ -149,14 +173,7 @@ public class MemberService {
         return memberRepository.findBySocialTypeAndSocialId(SocialType.KAKAO, socialId)
                 .map(member -> {
                     System.out.println("🔔 [Kakao-Login] 기존 회원 로그인 - ID: " + member.getId());
-                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(false)
-                            .email(member.getEmail())
-                            .nickname(member.getNickname())
-                            .profileImageUrl(member.getProfileImageUrl())
-                            .build();
+                    return generateLoginResponse(member, false);
                 })
                 .orElseGet(() -> {
                     // 3. 신규 회원일 경우 -> 약관 동의 체크 여부 확인 (방법 B 전략)
@@ -195,12 +212,7 @@ public class MemberService {
                             .build();
 
                     Member savedMember = memberRepository.save(newMember);
-                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail(), savedMember.getRole().name());
-
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(true)
-                            .build();
+                    return generateLoginResponse(savedMember, true);
                 });
     }
 
@@ -223,14 +235,7 @@ public class MemberService {
         return memberRepository.findBySocialTypeAndSocialId(SocialType.NAVER, socialId)
                 .map(member -> {
                     System.out.println("🔔 [Naver-Login] 기존 회원 로그인 - ID: " + member.getId());
-                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(false)
-                            .email(member.getEmail())
-                            .nickname(member.getNickname())
-                            .profileImageUrl(member.getProfileImageUrl())
-                            .build();
+                    return generateLoginResponse(member, false);
                 })
                 .orElseGet(() -> {
                     // 3. 신규 회원일 경우 -> 약관 동의 체크 여부 확인
@@ -269,12 +274,7 @@ public class MemberService {
                             .build();
 
                     Member savedMember = memberRepository.save(newMember);
-                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail(), savedMember.getRole().name());
-
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(true)
-                            .build();
+                    return generateLoginResponse(savedMember, true);
                 });
     }
 
@@ -297,14 +297,7 @@ public class MemberService {
         return memberRepository.findBySocialTypeAndSocialId(SocialType.GOOGLE, socialId)
                 .map(member -> {
                     System.out.println("🔔 [Google-Login] 기존 회원 로그인 - ID: " + member.getId());
-                    String jwtToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(false)
-                            .email(member.getEmail())
-                            .nickname(member.getNickname())
-                            .profileImageUrl(member.getProfileImageUrl())
-                            .build();
+                    return generateLoginResponse(member, false);
                 })
                 .orElseGet(() -> {
                     // 3. 신규 회원일 경우 -> 약관 동의 체크 여부 확인
@@ -343,19 +336,14 @@ public class MemberService {
                             .build();
 
                     Member savedMember = memberRepository.save(newMember);
-                    String jwtToken = jwtUtil.createToken(savedMember.getId(), savedMember.getEmail(), savedMember.getRole().name());
-
-                    return com.kuji.backend.domain.member.dto.LoginResponse.builder()
-                            .token(jwtToken)
-                            .isNewUser(true)
-                            .build();
+                    return generateLoginResponse(savedMember, true);
                 });
     }
 
     /**
      * 회원 로그인
      */
-    public String login(LoginRequest request) {
+    public com.kuji.backend.domain.member.dto.LoginResponse login(LoginRequest request) {
         int pwdLength = (request.password() != null) ? request.password().length() : 0;
         
         Member member = memberRepository.findByEmail(request.email())
@@ -369,9 +357,8 @@ public class MemberService {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
-        // 검증 통과! 이제 ID 대신 영롱한 JWT 토큰을 발급해서 줍니다!
         log.info("Login Success - Email: {}", request.email());
-        return jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
+        return generateLoginResponse(member, false);
     }
 
     /**
@@ -434,5 +421,48 @@ public class MemberService {
         com.kuji.backend.domain.member.entity.BusinessInfo businessInfo = businessInfoRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("사업자 정보를 찾을 수 없습니다."));
         return com.kuji.backend.domain.member.dto.BusinessProfileResponse.from(businessInfo);
+    }
+
+    /**
+     * 리프레시 토큰 검증 및 새 액세스 토큰 발급
+     */
+    @Transactional
+    public String refreshAccessToken(String refreshTokenStr) {
+        // 1. 토큰 유효성 검증
+        if (!jwtUtil.validateToken(refreshTokenStr)) {
+            return null; // 만료되거나 손상된 토큰
+        }
+
+        // 2. 토큰에서 memberId 추출
+        Long memberId = jwtUtil.getMemberId(refreshTokenStr);
+
+        // 3. DB에 저장된 리프레시 토큰과 일치하는지, 만료되지 않았는지 확인
+        com.kuji.backend.domain.member.entity.RefreshToken storedToken = refreshTokenRepository.findByMemberId(memberId)
+                .orElse(null);
+
+        if (storedToken == null || !storedToken.getTokenValue().equals(refreshTokenStr)) {
+            return null; // 토큰 탈취 가능성 처리 (DB와 불일치)
+        }
+        
+        if (storedToken.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+            refreshTokenRepository.deleteByMemberId(memberId);
+            return null; // DB 상 만료됨
+        }
+
+        // 4. 회원 확인 및 새 액세스 토큰 발급
+        Member member = memberRepository.findById(memberId).orElse(null);
+        if (member == null) {
+            return null;
+        }
+
+        return jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
+    }
+
+    /**
+     * 로그아웃 시 리프레시 토큰 삭제
+     */
+    @Transactional
+    public void logout(Long memberId) {
+        refreshTokenRepository.deleteByMemberId(memberId);
     }
 }
