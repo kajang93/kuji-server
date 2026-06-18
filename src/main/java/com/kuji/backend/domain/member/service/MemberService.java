@@ -43,14 +43,21 @@ public class MemberService {
         String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
         String refreshTokenStr = jwtUtil.createRefreshToken(member.getId());
 
-        com.kuji.backend.domain.member.entity.RefreshToken refreshToken = refreshTokenRepository.findByMemberId(member.getId())
-                .orElse(com.kuji.backend.domain.member.entity.RefreshToken.builder()
-                        .memberId(member.getId())
-                        .build());
+        // 기존 리프레시 토큰이 있으면 먼저 삭제 (PK 수정 불가로 인한 예외 방지)
+        refreshTokenRepository.findByMemberId(member.getId())
+                .ifPresent(token -> {
+                    refreshTokenRepository.delete(token);
+                    refreshTokenRepository.flush();
+                });
         
         java.time.LocalDateTime expiresAt = java.time.LocalDateTime.now().plusDays(14);
-        refreshToken.updateToken(refreshTokenStr, expiresAt);
-        refreshTokenRepository.save(refreshToken);
+        com.kuji.backend.domain.member.entity.RefreshToken newRefreshToken = com.kuji.backend.domain.member.entity.RefreshToken.builder()
+                .tokenValue(refreshTokenStr)
+                .memberId(member.getId())
+                .expiresAt(expiresAt)
+                .build();
+                
+        refreshTokenRepository.save(newRefreshToken);
 
         return com.kuji.backend.domain.member.dto.LoginResponse.builder()
                 .token(accessToken)
