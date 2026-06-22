@@ -396,7 +396,7 @@ public class MemberService {
         // 각 멤버의 마지막 로그인(토큰 발급) 시간을 구함
         java.util.Map<Member, java.time.LocalDateTime> lastLoginMap = new java.util.HashMap<>();
         for (Member m : members) {
-            java.time.LocalDateTime lastLogin = refreshTokenRepository.findByMemberId(m.getId())
+            java.time.LocalDateTime lastLogin = refreshTokenRepository.findFirstByMemberIdOrderByCreatedAtDesc(m.getId())
                     .map(com.kuji.backend.global.entity.BaseTimeEntity::getCreatedAt) // 토큰이 새로 발급될 때마다 생성되므로
                     .orElse(m.getCreatedAt()); // 토큰이 없으면 가입일 기준
             lastLoginMap.put(m, lastLogin);
@@ -467,7 +467,7 @@ public class MemberService {
         Long memberId = jwtUtil.getMemberId(refreshTokenStr);
 
         // 3. DB에 저장된 리프레시 토큰과 일치하는지, 만료되지 않았는지 확인
-        com.kuji.backend.domain.member.entity.RefreshToken storedToken = refreshTokenRepository.findByMemberId(memberId)
+        com.kuji.backend.domain.member.entity.RefreshToken storedToken = refreshTokenRepository.findFirstByMemberIdOrderByCreatedAtDesc(memberId)
                 .orElse(null);
 
         if (storedToken == null || !storedToken.getTokenValue().equals(refreshTokenStr)) {
