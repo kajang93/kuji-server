@@ -43,12 +43,9 @@ public class MemberService {
         String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
         String refreshTokenStr = jwtUtil.createRefreshToken(member.getId());
 
-        // 기존 리프레시 토큰이 있으면 먼저 삭제 (PK 수정 불가로 인한 예외 방지)
-        refreshTokenRepository.findByMemberId(member.getId())
-                .ifPresent(token -> {
-                    refreshTokenRepository.delete(token);
-                    refreshTokenRepository.flush();
-                });
+        // 기존 리프레시 토큰 전체 삭제 (중복 발급 및 500 에러 원천 방지)
+        refreshTokenRepository.deleteByMemberId(member.getId());
+        refreshTokenRepository.flush();
         
         java.time.LocalDateTime expiresAt = java.time.LocalDateTime.now().plusDays(14);
         com.kuji.backend.domain.member.entity.RefreshToken newRefreshToken = com.kuji.backend.domain.member.entity.RefreshToken.builder()
@@ -396,8 +393,8 @@ public class MemberService {
         // 각 멤버의 마지막 로그인(토큰 발급) 시간을 구함
         java.util.Map<Member, java.time.LocalDateTime> lastLoginMap = new java.util.HashMap<>();
         for (Member m : members) {
-            java.time.LocalDateTime lastLogin = refreshTokenRepository.findFirstByMemberIdOrderByCreatedAtDesc(m.getId())
-                    .map(com.kuji.backend.global.entity.BaseTimeEntity::getCreatedAt) // 토큰이 새로 발급될 때마다 생성되므로
+            java.time.LocalDateTime lastLogin = refreshTokenRepository.findFirstByMemberIdOrderByExpiresAtDesc(m.getId())
+                    .map(token -> token.getExpiresAt().minusDays(14)) // RefreshToken은 createdAt이 없으므로 만료일에서 역추산
                     .orElse(m.getCreatedAt()); // 토큰이 없으면 가입일 기준
             lastLoginMap.put(m, lastLogin);
         }
@@ -467,7 +464,7 @@ public class MemberService {
         Long memberId = jwtUtil.getMemberId(refreshTokenStr);
 
         // 3. DB에 저장된 리프레시 토큰과 일치하는지, 만료되지 않았는지 확인
-        com.kuji.backend.domain.member.entity.RefreshToken storedToken = refreshTokenRepository.findFirstByMemberIdOrderByCreatedAtDesc(memberId)
+        com.kuji.backend.domain.member.entity.RefreshToken storedToken = refreshTokenRepository.findFirstByMemberIdOrderByExpiresAtDesc(memberId)
                 .orElse(null);
 
         if (storedToken == null || !storedToken.getTokenValue().equals(refreshTokenStr)) {
