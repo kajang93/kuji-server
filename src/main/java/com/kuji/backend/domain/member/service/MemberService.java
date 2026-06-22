@@ -392,15 +392,30 @@ public class MemberService {
         if (members.isEmpty()) {
             throw new IllegalArgumentException("해당 전화번호로 가입된 회원이 없습니다.");
         }
+
+        // 각 멤버의 마지막 로그인(토큰 발급) 시간을 구함
+        java.util.Map<Member, java.time.LocalDateTime> lastLoginMap = new java.util.HashMap<>();
+        for (Member m : members) {
+            java.time.LocalDateTime lastLogin = refreshTokenRepository.findByMemberId(m.getId())
+                    .map(com.kuji.backend.global.entity.BaseTimeEntity::getCreatedAt) // 토큰이 새로 발급될 때마다 생성되므로
+                    .orElse(m.getCreatedAt()); // 토큰이 없으면 가입일 기준
+            lastLoginMap.put(m, lastLogin);
+        }
+
+        // 가장 최근 로그인한 멤버 찾기
+        Member mostRecentMember = members.stream()
+                .max(java.util.Comparator.comparing(m -> lastLoginMap.get(m)))
+                .orElse(members.get(0));
         
-        // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환하되, 다중 계정일 경우 소셜 여부 표시
+        // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환하되, 다중 계정일 경우 소셜 여부 및 최근 접속 표시
         return members.stream()
                 .filter(m -> m.getEmail() != null && !m.getEmail().isBlank())
                 .map(m -> {
-                    String socialLabel = m.getSocialType() == SocialType.LOCAL ? "" : " [" + m.getSocialType().name() + "]";
-                    return m.getEmail() + socialLabel;
+                    String socialLabel = m.getSocialType() == SocialType.LOCAL ? " (일반 가입)" : " [" + m.getSocialType().name() + " 간편가입]";
+                    String recentLabel = (m.equals(mostRecentMember) && members.size() > 1) ? " ⭐(최근 접속)" : "";
+                    return m.getEmail() + socialLabel + recentLabel;
                 })
-                .collect(java.util.stream.Collectors.joining(", "));
+                .collect(java.util.stream.Collectors.joining("\n")); // 가독성을 위해 줄바꿈(\n)으로 연결
     }
 
     /**
@@ -410,6 +425,11 @@ public class MemberService {
     public void resetPassword(String email, String phoneNumber) {
         Member member = memberRepository.findByEmailAndPhoneNumber(email, phoneNumber)
                 .orElseThrow(() -> new IllegalArgumentException("일치하는 회원 정보가 없습니다."));
+        
+        // 💡 실무 표준 적용: 소셜 로그인 계정은 비밀번호 재설정을 원천 차단
+        if (member.getSocialType() != SocialType.LOCAL) {
+            throw new IllegalArgumentException("해당 계정은 " + member.getSocialType().name() + " 간편 로그인으로 가입된 계정입니다. 비밀번호 찾기 대신 소셜 로그인 버튼을 이용해 주세요.");
+        }
         
         // 임시 비밀번호 설정 (데모용)
         String tempPassword = passwordEncoder.encode("temp1234!");
