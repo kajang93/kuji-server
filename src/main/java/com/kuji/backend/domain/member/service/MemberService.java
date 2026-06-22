@@ -387,17 +387,20 @@ public class MemberService {
         // 1. 인증번호 검증 (실패 시 예외 발생)
         smsVerificationService.verifyCode(phoneNumber, verificationCode);
 
-        // 2. 전화번호로 회원 조회
-        Member member = memberRepository.findByPhoneNumber(phoneNumber)
-                .orElseThrow(() -> new IllegalArgumentException("해당 전화번호로 가입된 회원이 없습니다."));
-        
-        String email = member.getEmail();
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("이메일로 가입된 계정이 아닙니다 (소셜 가입 등).");
+        // 2. 전화번호로 회원 목록 조회 (다중 계정 처리)
+        java.util.List<Member> members = memberRepository.findAllByPhoneNumber(phoneNumber);
+        if (members.isEmpty()) {
+            throw new IllegalArgumentException("해당 전화번호로 가입된 회원이 없습니다.");
         }
         
-        // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환
-        return email;
+        // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환하되, 다중 계정일 경우 소셜 여부 표시
+        return members.stream()
+                .filter(m -> m.getEmail() != null && !m.getEmail().isBlank())
+                .map(m -> {
+                    String socialLabel = m.getSocialType() == SocialType.LOCAL ? "" : " [" + m.getSocialType().name() + "]";
+                    return m.getEmail() + socialLabel;
+                })
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     /**

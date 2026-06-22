@@ -17,7 +17,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM Member m WHERE m.createdAt >= :startDate")
     Long countMembersCreatedAfter(@org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate);
 
-    Optional<Member> findByPhoneNumber(String phoneNumber);
+    List<Member> findAllByPhoneNumber(String phoneNumber);
     
     Optional<Member> findByEmailAndPhoneNumber(String email, String phoneNumber);
 }
