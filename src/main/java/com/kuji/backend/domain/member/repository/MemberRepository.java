@@ -5,6 +5,7 @@ import com.kuji.backend.domain.member.enums.SocialType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
     // 💡 실무 팁: 이메일로 회원을 찾는 기능은 로그인/중복체크 시 필수입니다.
