@@ -60,11 +60,11 @@ public class SmsVerificationService {
      * 알리고 SMS API를 통해 인증번호를 발송합니다.
      */
     public void sendVerificationCode(String phoneNumber) {
-        // 0. 하루 최대 발송 횟수(100회 - 테스트용 완화) 체크
+        // 0. 하루 최대 발송 횟수(3회) 체크
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         long todayCount = smsLogRepository.countByPhoneNumberAndCreatedAtAfter(phoneNumber, startOfDay);
-        if (todayCount >= 100) {
-            throw new IllegalArgumentException("하루 최대 인증 문자 발송 횟수(100회)를 초과했습니다. 내일 다시 시도해주세요.");
+        if (todayCount >= 3) {
+            throw new IllegalArgumentException("하루 최대 인증 문자 발송 횟수(3회)를 초과했습니다. 내일 다시 시도해주세요.");
         }
 
         // 1. 6자리 난수 생성
