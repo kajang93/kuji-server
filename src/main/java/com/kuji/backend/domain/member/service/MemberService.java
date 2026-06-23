@@ -347,6 +347,7 @@ public class MemberService {
     /**
      * 회원 로그인
      */
+    @Transactional
     public com.kuji.backend.domain.member.dto.LoginResponse login(LoginRequest request) {
         int pwdLength = (request.password() != null) ? request.password().length() : 0;
         
