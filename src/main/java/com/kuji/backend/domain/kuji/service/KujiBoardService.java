@@ -93,6 +93,14 @@ public class KujiBoardService {
         KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
         com.kuji.backend.domain.kuji.enums.BoardStatus oldStatus = kujiBoard.getStatus();
+
+        if (status == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE) {
+            com.kuji.backend.domain.member.entity.Member member = kujiBoard.getMember();
+            if (member.getBusinessInfo() == null || member.getBusinessInfo().getStatus() != com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED) {
+                throw new IllegalArgumentException("사업자 심사가 승인된 후에만 운영중(ACTIVE) 상태로 변경할 수 있습니다.");
+            }
+        }
+
         kujiBoard.updateStatus(status);
 
         if (status == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE) {
