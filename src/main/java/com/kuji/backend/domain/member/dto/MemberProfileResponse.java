@@ -16,7 +16,8 @@ public record MemberProfileResponse(
         String phoneNumber,
         LocalDate birthDate,
         Integer points,
-        RoleType role) {
+        RoleType role,
+        java.time.LocalDateTime createdAt) {
 
     public static MemberProfileResponse from(Member member) {
         return new MemberProfileResponse(
@@ -27,6 +28,7 @@ public record MemberProfileResponse(
                 member.getPhoneNumber(),
                 member.getBirthDate(),
                 member.getPoint(),
-                member.getRole());
+                member.getRole(),
+                member.getCreatedAt());
     }
 }
