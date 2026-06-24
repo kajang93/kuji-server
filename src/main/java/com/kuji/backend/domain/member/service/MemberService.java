@@ -381,14 +381,26 @@ public class MemberService {
     /**
      * 아이디 찾기 (전화번호와 인증번호로 검증 후 전체 이메일 반환)
      */
-    public String findId(String phoneNumber, String verificationCode) {
+    public String findId(String phoneNumber, String verificationCode, String type) {
         // 1. 인증번호 검증 (실패 시 예외 발생)
         smsVerificationService.verifyCode(phoneNumber, verificationCode);
 
         // 2. 전화번호로 회원 목록 조회 (다중 계정 처리)
         java.util.List<Member> members = memberRepository.findAllByPhoneNumber(phoneNumber);
+        
+        // 3. 타입에 따른 롤 필터링 ("business" -> BIZ, "customer" -> USER)
+        if (type != null && !type.isBlank()) {
+            com.kuji.backend.domain.member.enums.RoleType targetRole = "business".equalsIgnoreCase(type) ? 
+                com.kuji.backend.domain.member.enums.RoleType.BIZ : 
+                com.kuji.backend.domain.member.enums.RoleType.USER;
+                
+            members = members.stream()
+                .filter(m -> m.getRole() == targetRole)
+                .toList();
+        }
+        
         if (members.isEmpty()) {
-            throw new IllegalArgumentException("해당 전화번호로 가입된 회원이 없습니다.");
+            throw new IllegalArgumentException("해당 정보로 가입된 회원이 없습니다.");
         }
 
         // 각 멤버의 마지막 로그인(토큰 발급) 시간을 구함

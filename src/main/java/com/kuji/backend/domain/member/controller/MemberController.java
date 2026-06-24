@@ -202,7 +202,7 @@ public class MemberController {
      */
     @PostMapping("/find-id")
     public ResponseEntity<FindIdResponse> findId(@RequestBody FindIdRequest request) {
-        String fullEmail = memberService.findId(request.phoneNumber(), request.verificationCode());
+        String fullEmail = memberService.findId(request.phoneNumber(), request.verificationCode(), request.type());
         return ResponseEntity.ok(new FindIdResponse(fullEmail));
     }
 
