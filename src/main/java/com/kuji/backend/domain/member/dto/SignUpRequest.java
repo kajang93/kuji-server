@@ -18,6 +18,7 @@ public record SignUpRequest(
         String businessNumber,
         String companyName,
         String ceoName,
+        String businessAddress,
         Boolean isTermsAgreed,
         Boolean isPrivacyAgreed,
         Boolean isMarketingAgreed) {

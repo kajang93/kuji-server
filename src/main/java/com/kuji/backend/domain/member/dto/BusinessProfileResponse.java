@@ -9,6 +9,7 @@ public record BusinessProfileResponse(
         String licenseImageUrl,
         String status,
         String rejectReason,
+        String businessAddress,
         java.time.LocalDateTime createdAt
 ) {
     public static BusinessProfileResponse from(BusinessInfo info) {
@@ -19,6 +20,7 @@ public record BusinessProfileResponse(
                 info.getLicenseImageUrl(),
                 info.getStatus().name(),
                 info.getRejectReason(),
+                info.getBusinessAddress(),
                 info.getCreatedAt()
         );
     }

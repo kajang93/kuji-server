@@ -131,6 +131,7 @@ public class MemberService {
                     .businessNumber(request.businessNumber())
                     .companyName(request.companyName())
                     .ceoName(request.ceoName())
+                    .businessAddress(request.businessAddress())
                     .licenseImageUrl("pending_upload") // 💡 추후 파일 업로드 로직과 연결 필요
                     .build();
             businessInfoRepository.save(businessInfo);

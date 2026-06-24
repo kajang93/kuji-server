@@ -47,14 +47,18 @@ public class BusinessInfo extends BaseTimeEntity {
     @Column(name = "reject_reason", length = 255)
     private String rejectReason;
 
+    @Column(name = "business_address", length = 255)
+    private String businessAddress;
+
     @Builder
     public BusinessInfo(Member member, String businessNumber, String companyName,
-            String ceoName, String licenseImageUrl) {
+            String ceoName, String licenseImageUrl, String businessAddress) {
         this.member = member;
         this.businessNumber = businessNumber;
         this.companyName = companyName;
         this.ceoName = ceoName;
         this.licenseImageUrl = licenseImageUrl;
+        this.businessAddress = businessAddress;
         this.status = BusinessStatus.PENDING; // 처음 등록 시 무조건 '대기' 상태
     }
 
