@@ -7,6 +7,9 @@ public record NotificationSettingResponse(
         boolean kakaoWinning,
         boolean kakaoDelivery,
         boolean kakaoInquiry,
+        boolean kakaoBizOrder,
+        boolean kakaoBizCancel,
+        boolean kakaoBizInquiry,
         boolean marketingOpen,
         boolean marketingRestock,
         boolean marketingEvent,
@@ -18,6 +21,9 @@ public record NotificationSettingResponse(
                 setting.isKakaoWinning(),
                 setting.isKakaoDelivery(),
                 setting.isKakaoInquiry(),
+                setting.isKakaoBizOrder(),
+                setting.isKakaoBizCancel(),
+                setting.isKakaoBizInquiry(),
                 setting.isMarketingOpen(),
                 setting.isMarketingRestock(),
                 setting.isMarketingEvent(),
@@ -27,6 +33,6 @@ public record NotificationSettingResponse(
 
     /** 설정이 없는 신규 유저에게 반환할 기본값 */
     public static NotificationSettingResponse defaultValue() {
-        return new NotificationSettingResponse(true, true, true, true, true, true, true, false);
+        return new NotificationSettingResponse(true, true, true, true, true, true, true, true, true, true, false);
     }
 }

@@ -36,6 +36,16 @@ public class NotificationSetting extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean kakaoInquiry = true;
 
+    // 사업자 전용 알림톡 유형 (주문, 취소, 고객문의)
+    @Column(nullable = false)
+    private boolean kakaoBizOrder = true;
+
+    @Column(nullable = false)
+    private boolean kakaoBizCancel = true;
+
+    @Column(nullable = false)
+    private boolean kakaoBizInquiry = true;
+
     // 마케팅 알림 유형 (관심상품 오픈, 재입고, 이벤트/마감임박)
     @Column(nullable = false)
     private boolean marketingOpen = true;
@@ -56,12 +66,16 @@ public class NotificationSetting extends BaseTimeEntity {
     }
 
     public void updateSettings(boolean pushEnabled, boolean kakaoWinning, boolean kakaoDelivery,
-                               boolean kakaoInquiry, boolean marketingOpen, boolean marketingRestock,
+                               boolean kakaoInquiry, boolean kakaoBizOrder, boolean kakaoBizCancel,
+                               boolean kakaoBizInquiry, boolean marketingOpen, boolean marketingRestock,
                                boolean marketingEvent, boolean nightPush) {
         this.pushEnabled = pushEnabled;
         this.kakaoWinning = kakaoWinning;
         this.kakaoDelivery = kakaoDelivery;
         this.kakaoInquiry = kakaoInquiry;
+        this.kakaoBizOrder = kakaoBizOrder;
+        this.kakaoBizCancel = kakaoBizCancel;
+        this.kakaoBizInquiry = kakaoBizInquiry;
         this.marketingOpen = marketingOpen;
         this.marketingRestock = marketingRestock;
         this.marketingEvent = marketingEvent;
