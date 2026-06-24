@@ -436,6 +436,48 @@ public class MemberService {
     }
 
     /**
+     * 로그아웃 상태에서의 즉시 비밀번호 재설정
+     */
+    @Transactional
+    public void resetPasswordDirect(com.kuji.backend.domain.member.dto.DirectResetPasswordRequest request) {
+        // 1. 회원 정보 조회
+        Member member = memberRepository.findByEmailAndPhoneNumber(request.email(), request.phoneNumber())
+                .orElseThrow(() -> new IllegalArgumentException("일치하는 회원 정보가 없습니다."));
+
+        // 2. 소셜 로그인 여부 확인
+        if (member.getSocialType() != SocialType.LOCAL) {
+            throw new IllegalArgumentException("해당 계정은 " + member.getSocialType().name() + " 간편 로그인으로 가입된 계정입니다. 비밀번호 찾기 대신 소셜 로그인 버튼을 이용해 주세요.");
+        }
+
+        // 3. 휴대폰 인증번호 검증 (유효하지 않거나 만료된 경우 예외 발생)
+        smsVerificationService.verifyCode(request.phoneNumber(), request.verificationCode());
+
+        // 4. 새 비밀번호 인코딩 및 강제 덮어쓰기
+        String newEncodedPassword = passwordEncoder.encode(request.newPassword());
+        member.updatePassword(newEncodedPassword);
+    }
+
+    /**
+     * 로그인 유저의 비밀번호 변경
+     */
+    @Transactional
+    public void changePassword(Long memberId, com.kuji.backend.domain.member.dto.ChangePasswordRequest request) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+
+        if (member.getSocialType() != SocialType.LOCAL) {
+            throw new IllegalArgumentException("해당 계정은 " + member.getSocialType().name() + " 간편 로그인으로 가입된 계정입니다. 비밀번호 변경이 불가능합니다.");
+        }
+
+        if (member.getPassword() == null || !passwordEncoder.matches(request.currentPassword(), member.getPassword())) {
+            throw new IllegalArgumentException("기존 비밀번호가 일치하지 않습니다.");
+        }
+
+        String newEncodedPassword = passwordEncoder.encode(request.newPassword());
+        member.updatePassword(newEncodedPassword);
+    }
+
+    /**
      * 이메일 중복 여부 확인
      */
     public boolean isEmailExist(String email) {

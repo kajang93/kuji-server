@@ -216,6 +216,24 @@ public class MemberController {
     }
 
     /**
+     * 로그아웃 상태에서의 즉시 비밀번호 재설정 API
+     */
+    @PostMapping("/reset-password/direct")
+    public ResponseEntity<String> resetPasswordDirect(@RequestBody DirectResetPasswordRequest request) {
+        memberService.resetPasswordDirect(request);
+        return ResponseEntity.ok("비밀번호가 성공적으로 재설정되었습니다.");
+    }
+
+    /**
+     * 로그인 유저의 비밀번호 변경 API
+     */
+    @PatchMapping("/password")
+    public ResponseEntity<String> changePassword(@AuthenticationPrincipal Long memberId, @RequestBody ChangePasswordRequest request) {
+        memberService.changePassword(memberId, request);
+        return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
+    }
+
+    /**
      * 사업자 프로필 조회 API
      */
     @GetMapping("/business-profile")
