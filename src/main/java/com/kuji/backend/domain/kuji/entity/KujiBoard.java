@@ -53,4 +53,8 @@ public class KujiBoard extends BaseTimeEntity {
     public void updateStatus(BoardStatus status) {
         this.status = status;
     }
+
+    public void updateRewardRate(Integer rewardRate) {
+        this.rewardRate = (rewardRate != null) ? rewardRate : 0;
+    }
 }

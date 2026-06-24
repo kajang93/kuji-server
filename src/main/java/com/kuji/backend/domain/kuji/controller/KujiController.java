@@ -103,6 +103,18 @@ public class KujiController {
     }
 
     /**
+     * 쿠지 판 적립 포인트 수정
+     */
+    @PatchMapping("/{id}/reward-rate")
+    public ResponseEntity<Void> updateBoardRewardRate(
+            @PathVariable("id") Long boardId,
+            @RequestParam("rewardRate") Integer rewardRate) {
+        
+        kujiBoardService.updateRewardRate(boardId, rewardRate);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * 쿠지 상품 대량 등록
      */
     @PostMapping("/{id}/items")

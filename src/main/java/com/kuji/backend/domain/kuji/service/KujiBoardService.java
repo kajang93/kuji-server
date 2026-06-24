@@ -105,6 +105,16 @@ public class KujiBoardService {
     }
 
     /**
+     * 쿠지 판 적립 포인트 변경
+     */
+    @Transactional
+    public void updateRewardRate(Long boardId, Integer rewardRate) {
+        KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        kujiBoard.updateRewardRate(rewardRate);
+    }
+
+    /**
      * 전체 목록 조회 (찜 여부 포함)
      */
     public List<KujiBoardResponse> getAllBoards(Long memberId) {
