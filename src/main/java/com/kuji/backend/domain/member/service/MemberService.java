@@ -35,6 +35,7 @@ public class MemberService {
     private final NaverClient naverClient;
     private final GoogleClient googleClient;
     private final BusinessInfoRepository businessInfoRepository;
+    private final com.kuji.backend.domain.member.repository.FeePromotionRepository feePromotionRepository;
     private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
     private final com.kuji.backend.domain.member.repository.RefreshTokenRepository refreshTokenRepository;
@@ -93,7 +94,14 @@ public class MemberService {
             imageUrl = s3Service.uploadFile("profiles", profileImage);
         }
 
-        member.updateProfile(request.nickname(), imageUrl);
+        member.updateProfile(
+            request.nickname(), 
+            imageUrl,
+            request.phoneNumber(),
+            request.birthDate(),
+            request.address(),
+            request.addressDetail()
+        );
         return MemberProfileResponse.from(member);
     }
 
@@ -134,6 +142,14 @@ public class MemberService {
                     .businessAddress(request.businessAddress())
                     .licenseImageUrl("pending_upload") // 💡 추후 파일 업로드 로직과 연결 필요
                     .build();
+
+            // 프로모션 적용 로직 (Pessimistic Lock 등으로 동시성 제어 권장. 현재는 단순 반영)
+            java.time.ZonedDateTime now = java.time.ZonedDateTime.now();
+            feePromotionRepository.findFirstActivePromotion(now).ifPresent(promotion -> {
+                promotion.incrementCount();
+                businessInfo.applyPromotion(promotion, promotion.getFreeMonths());
+            });
+
             businessInfoRepository.save(businessInfo);
         }
 

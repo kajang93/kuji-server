@@ -15,6 +15,8 @@ public record MemberProfileResponse(
         String profileImageUrl,
         String phoneNumber,
         LocalDate birthDate,
+        String address,
+        String addressDetail,
         Integer points,
         RoleType role,
         java.time.LocalDateTime createdAt) {
@@ -27,6 +29,8 @@ public record MemberProfileResponse(
                 member.getProfileImageUrl(),
                 member.getPhoneNumber(),
                 member.getBirthDate(),
+                member.getAddress(),
+                member.getAddressDetail(),
                 member.getPoint(),
                 member.getRole(),
                 member.getCreatedAt());

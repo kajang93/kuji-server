@@ -67,6 +67,12 @@ public class Member extends BaseTimeEntity {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @Column(length = 255)
+    private String address;
+
+    @Column(name = "address_detail", length = 255)
+    private String addressDetail;
+
     @Column(nullable = false)
     @ColumnDefault("0") // DB 기본값 0
     private Integer point = 0; // 자바 단에서도 0으로 초기화
@@ -94,6 +100,8 @@ public class Member extends BaseTimeEntity {
         this.profileImageUrl = profileImageUrl;
         this.phoneNumber = phoneNumber;
         this.birthDate = birthDate;
+        this.address = null;
+        this.addressDetail = null;
         this.isTermsAgreed = isTermsAgreed;
         this.isPrivacyAgreed = isPrivacyAgreed;
         this.isMarketingAgreed = isMarketingAgreed;
@@ -116,12 +124,24 @@ public class Member extends BaseTimeEntity {
         this.point -= amount;
     }
 
-    public void updateProfile(String nickname, String profileImageUrl) {
+    public void updateProfile(String nickname, String profileImageUrl, String phoneNumber, LocalDate birthDate, String address, String addressDetail) {
         if (nickname != null && !nickname.isBlank()) {
             this.nickname = nickname;
         }
         if (profileImageUrl != null) {
             this.profileImageUrl = profileImageUrl;
+        }
+        if (phoneNumber != null) {
+            this.phoneNumber = phoneNumber;
+        }
+        if (birthDate != null) {
+            this.birthDate = birthDate;
+        }
+        if (address != null) {
+            this.address = address;
+        }
+        if (addressDetail != null) {
+            this.addressDetail = addressDetail;
         }
     }
 

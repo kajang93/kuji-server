@@ -6,5 +6,9 @@ package com.kuji.backend.domain.member.dto;
  * - profileImageUrl은 Controller에서 이미지 업로드 후 별도 처리
  */
 public record UpdateProfileRequest(
-        String nickname
+        String nickname,
+        String phoneNumber,
+        java.time.LocalDate birthDate,
+        String address,
+        String addressDetail
 ) {}
