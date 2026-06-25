@@ -21,4 +21,5 @@ public class DrawHistoryResponse {
     private DrawStatus status;      // 현재 상태 (DRAWN, SHIPPING_REQUESTED 등)
     private LocalDateTime createdAt;// 당첨 일시
     private Long shippingId;        // 배송 ID
+    private Integer price;          // 결제 금액 (추가)
 }

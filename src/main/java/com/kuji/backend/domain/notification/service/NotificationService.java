@@ -100,6 +100,7 @@ public class NotificationService {
 
         List<String> tokens = deviceTokens.stream()
                 .map(DeviceToken::getToken)
+                .distinct()
                 .collect(Collectors.toList());
 
         // 4. FCM 메시지 구성
