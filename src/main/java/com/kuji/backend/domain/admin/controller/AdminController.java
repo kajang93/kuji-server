@@ -5,8 +5,12 @@ import com.kuji.backend.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.kuji.backend.domain.admin.service.AdminService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +21,7 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final MemberRepository memberRepository;
+    private final AdminService adminService;
 
     /**
      * 관리자: 전체 회원 목록 조회
@@ -29,5 +34,18 @@ public class AdminController {
                 .collect(Collectors.toList());
         
         return ResponseEntity.ok(members);
+    }
+
+    public record UpdateFeeRateRequest(Integer feeRate) {}
+
+    /**
+     * 관리자: 사업자 수수료율 변경
+     */
+    @PutMapping("/members/{id}/fee-rate")
+    public ResponseEntity<Void> updateFeeRate(
+            @PathVariable Long id,
+            @RequestBody UpdateFeeRateRequest request) {
+        adminService.updateBusinessFeeRate(id, request.feeRate());
+        return ResponseEntity.ok().build();
     }
 }

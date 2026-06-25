@@ -13,7 +13,9 @@ public record AdminMemberResponse(
         String phoneNumber,
         RoleType role,
         SocialType socialType,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        Integer baseFeeRate,
+        LocalDateTime promotionEndAt
 ) {
     public static AdminMemberResponse from(Member member) {
         return new AdminMemberResponse(
@@ -23,7 +25,10 @@ public record AdminMemberResponse(
                 member.getPhoneNumber(),
                 member.getRole(),
                 member.getSocialType(),
-                member.getCreatedAt()
+                member.getCreatedAt(),
+                member.getBusinessInfo() != null ? member.getBusinessInfo().getBaseFeeRate() : null,
+                member.getBusinessInfo() != null && member.getBusinessInfo().getPromotionEndAt() != null 
+                        ? member.getBusinessInfo().getPromotionEndAt().toLocalDateTime() : null
         );
     }
 }

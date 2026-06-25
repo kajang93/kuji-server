@@ -6,6 +6,8 @@ import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.enums.PointType;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
+import com.kuji.backend.domain.member.entity.BusinessInfo;
+import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
 import com.kuji.backend.domain.statistics.dto.AdminSummaryResponse;
 import com.kuji.backend.domain.statistics.dto.DailySalesResponse;
 import com.kuji.backend.domain.statistics.dto.SellerSummaryResponse;
@@ -30,6 +32,7 @@ public class StatisticsService {
     private final PointHistoryRepository pointHistoryRepository;
     private final MemberRepository memberRepository;
     private final DrawHistoryRepository drawHistoryRepository;
+    private final BusinessInfoRepository businessInfoRepository;
 
     /**
      * [Admin] 전체 요약 통계
@@ -82,9 +85,17 @@ public class StatisticsService {
         Long lastMonthSales = pointHistoryRepository.sumSalesBySellerIdAndDateRange(
                 sellerId, PointType.USE, startOfLastMonth, endOfLastMonth);
 
-        // 4. 수수료 로직: 가입 30일 내 0%, 이후 10%
-        boolean isFirstMonthFree = seller.getCreatedAt().plusDays(30).isAfter(LocalDateTime.now());
-        int appliedFeeRate = isFirstMonthFree ? 0 : 10;
+        // 4. 수수료 로직: BusinessInfo에서 프로모션 및 수수료율 조회
+        BusinessInfo businessInfo = businessInfoRepository.findById(sellerId)
+                .orElseThrow(() -> new IllegalArgumentException("사업자 정보를 찾을 수 없습니다."));
+
+        int appliedFeeRate = businessInfo.getBaseFeeRate();
+        boolean isPromotionActive = businessInfo.getPromotionEndAt() != null 
+                && java.time.ZonedDateTime.now().isBefore(businessInfo.getPromotionEndAt());
+        
+        if (isPromotionActive) {
+            appliedFeeRate = 0;
+        }
         
         // 정산금 = 전월 매출 * (100 - 수수료율) / 100
         Long estimatedSettlement = lastMonthSales * (100 - appliedFeeRate) / 100;
@@ -93,7 +104,7 @@ public class StatisticsService {
                 .totalSalesPoints(totalSales)
                 .estimatedSettlement(estimatedSettlement)
                 .appliedFeeRate(appliedFeeRate)
-                .isFirstMonthFree(isFirstMonthFree)
+                .isFirstMonthFree(isPromotionActive) // 프론트엔드 호환성을 위해 이름 유지 또는 변경 가능
                 .pendingShippingCount(pendingShipping)
                 .build();
     }
