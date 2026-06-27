@@ -435,11 +435,12 @@ public class MemberService {
                 .orElse(members.get(0));
         
         // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환하되, 다중 계정일 경우 소셜 여부 및 최근 접속 표시
+        final int memberCount = members.size();
         return members.stream()
                 .filter(m -> m.getEmail() != null && !m.getEmail().isBlank())
                 .map(m -> {
                     String socialLabel = m.getSocialType() == SocialType.LOCAL ? " (일반 가입)" : " [" + m.getSocialType().name() + " 간편가입]";
-                    String recentLabel = (m.equals(mostRecentMember) && members.size() > 1) ? " ⭐(최근 접속)" : "";
+                    String recentLabel = (m.equals(mostRecentMember) && memberCount > 1) ? " ⭐(최근 접속)" : "";
                     return m.getEmail() + socialLabel + recentLabel;
                 })
                 .collect(java.util.stream.Collectors.joining("\n")); // 가독성을 위해 줄바꿈(\n)으로 연결

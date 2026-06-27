@@ -53,12 +53,25 @@ public class S3Service {
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
 
-            // 업로드된 파일의 공개 URL 반환 (CloudFront 사용 시 해당 URL로 변경 가능)
             return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, fileName);
 
         } catch (IOException e) {
             throw new RuntimeException("S3 파일 업로드 중 오류가 발생했습니다.", e);
         }
+    }
+
+    /**
+     * S3에 파일 직접 업로드 (byte[])
+     */
+    public String uploadFile(String category, String originalFilename, byte[] bytes, String contentType) {
+        String fileName = category + "/" + UUID.randomUUID() + "_" + originalFilename;
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(fileName)
+                .contentType(contentType)
+                .build();
+        s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, fileName);
     }
 
     /**

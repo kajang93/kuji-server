@@ -1,76 +1,57 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- 속성 정의 -->
-    <springProperty scope="context" name="SLACK_WEBHOOK_URL" source="slack.webhook-url" defaultValue="mock" />
-    <property name="LOG_PATH" value="logs" />
-
-    <!-- 1. Console Appender (로컬 개발용 텍스트 포맷) -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%X{traceId:-N/A}] [%X{memberId:-N/A}] --- [%thread] %cyan(%logger{36}) : %msg%n</pattern>
+    <!-- Console Appender for JSON format -->
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include custom fields -->
+            <customFields>{"app_name":"kuji-server"}</customFields>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            <includeMdcKeyName>memberId</includeMdcKeyName>
+            <includeMdcKeyName>requestUri</includeMdcKeyName>
+            <includeMdcKeyName>eventType</includeMdcKeyName>
         </encoder>
     </appender>
 
-    <!-- 2. Error File Appender (에러 로깅용 JSON 포맷) -->
-    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/error.log</file>
-        <!-- 에러(ERROR, WARN) 레벨 이상만 파일에 남김 -->
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>WARN</level>
-        </filter>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/error-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
+    <!-- Console Appender for plain text (useful for local development) -->
+    <appender name="CONSOLE_PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{requestId}] [%X{memberId}] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Business Audit Log (File Appender) -->
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/audit.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/audit-%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"log_type":"audit"}</customFields>
+        </encoder>
     </appender>
 
-    <!-- 3. Business File Appender (결제 등 중요 비즈니스용 JSON 포맷) -->
-    <appender name="BUSINESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/business.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/business-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-        </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
-    </appender>
-
-    <!-- 4. Slack Webhook Appender (커스텀 알림용) -->
-    <appender name="SLACK" class="com.kuji.backend.global.log.SlackWebhookAppender">
-        <webhookUrl>${SLACK_WEBHOOK_URL}</webhookUrl>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
-        </filter>
-    </appender>
-
-    <!-- Async Appender를 씌워 Slack 요청이 메인 스레드를 블로킹하지 않게 처리 -->
-    <appender name="ASYNC_SLACK" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="SLACK" />
-        <queueSize>256</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-    </appender>
-
-    <!-- ============================================== -->
-    <!-- 로거 설정 -->
-    <!-- ============================================== -->
-
-    <!-- 기본 Root Logger -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE" />
-        <appender-ref ref="ERROR_FILE" />
-        <!-- 에러 알림 -->
-        <appender-ref ref="ASYNC_SLACK" />
-    </root>
-
-    <!-- 특정 비즈니스 로거 정의 (패키지나 특정 이름 기반) -->
-    <logger name="BUSINESS_LOGGER" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE" />
-        <appender-ref ref="BUSINESS_FILE" />
-        <!-- 결제 실패 등도 슬랙으로 보내고 싶다면 추가 -->
-        <appender-ref ref="ASYNC_SLACK" />
+    <logger name="com.kuji.backend.audit" level="INFO" additivity="false">
+        <appender-ref ref="AUDIT_FILE" />
+        <appender-ref ref="CONSOLE_JSON" />
     </logger>
+
+    <!-- Spring Profile: Local uses plain, Prod uses JSON -->
+    <springProfile name="local | dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_PLAIN" />
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE_JSON" />
+        </root>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_PLAIN" />
+    </root>
 
 </configuration>

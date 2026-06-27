@@ -1,0 +1,23 @@
+// 1. 스프링부트 서버에서 메트릭을 15초마다 긁어옵니다 (Scrape)
+prometheus.scrape "kuji_backend" {
+  targets = [
+    {
+      "__address__" = "host.docker.internal:8080",
+    },
+  ]
+  metrics_path = "/actuator/prometheus"
+  forward_to = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
+}
+
+// 2. 긁어온 데이터를 Grafana Cloud로 쏴줍니다 (Remote Write)
+prometheus.remote_write "metrics_hosted_prometheus" {
+  endpoint {
+    name = "hosted-prometheus"
+    url  = "https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push"
+    
+    basic_auth {
+      username = "3335624"
+      password = sys.env("GRAFANA_API_TOKEN")
+    }
+  }
+}
