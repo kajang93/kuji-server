@@ -63,7 +63,7 @@ management:
 
 gemini:
   api-key: ${GEMINI_API_KEY:mock}
-  model: ${GEMINI_MODEL:gemini-1.5-flash}
+  model: ${GEMINI_MODEL:gemini-2.5-flash}
 
 huggingface:
   api-key: ${HF_API_KEY:mock}
