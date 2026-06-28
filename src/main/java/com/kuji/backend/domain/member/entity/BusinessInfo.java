@@ -52,7 +52,7 @@ public class BusinessInfo extends BaseTimeEntity {
     @Column(name = "business_address", length = 255)
     private String businessAddress;
 
-    @Column(name = "base_fee_rate", nullable = false)
+    @Column(name = "base_fee_rate", nullable = false, columnDefinition = "integer default 8")
     private Integer baseFeeRate = 8;
 
     @ManyToOne(fetch = FetchType.LAZY)
