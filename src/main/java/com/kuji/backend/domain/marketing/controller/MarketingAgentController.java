@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/marketing")
+@RequestMapping("/api/marketing")
 @RequiredArgsConstructor
 public class MarketingAgentController {
 
