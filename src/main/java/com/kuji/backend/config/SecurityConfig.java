@@ -55,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.web.cors.CorsUtils::isPreFlightRequest).permitAll()
                         .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao", "/api/members/login/naver", "/api/members/login/google", "/error", "/ws/**").permitAll()
                         .requestMatchers("/api/members/refresh", "/api/members/check-email", "/api/members/find-id", "/api/members/send-sms", "/api/members/verify-sms", "/api/members/reset-password").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**", "/api/posts", "/api/posts/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**", "/api/posts", "/api/posts/**", "/api/ops/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // 💡 관리자 전용 경로 추가!
                         .anyRequest().authenticated())
