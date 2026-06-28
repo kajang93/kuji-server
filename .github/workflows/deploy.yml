@@ -61,4 +61,4 @@ jobs:
             
             # 💡 서버 기동 후 상태를 10초 대기한 뒤 확인하고 에러 로그 출력 (디버깅용)
             sleep 10
-            sudo systemctl status kuji-server || sudo journalctl -u kuji-server -n 200 --no-pager
+            sudo systemctl status kuji-server; sudo journalctl -u kuji-server -n 100 --no-pager
