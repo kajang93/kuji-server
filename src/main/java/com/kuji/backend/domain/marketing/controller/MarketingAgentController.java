@@ -37,6 +37,8 @@ public class MarketingAgentController {
                 "remainingCount", String.valueOf(remainingCount),
                 "aiGeneratedCopy", generatedCopy
         ));
+    }
+
     /**
      * 테스트용: 마케팅 에이전트가 캠페인을 기획하고 운영 에이전트에게 승인을 요청하는 전체 A2A 시나리오
      */
