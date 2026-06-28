@@ -9,6 +9,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -26,9 +28,12 @@ public class MdcLoggingFilter implements Filter {
                 MDC.put("requestId", UUID.randomUUID().toString().substring(0, 8));
                 MDC.put("requestUri", httpRequest.getRequestURI());
                 
-                // If memberId is present in SecurityContext or headers, it can be added here.
-                // Since this filter runs before Security filter, memberId might be null.
-                // A secondary filter or interceptor could update MDC with memberId after auth.
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+                    MDC.put("memberId", authentication.getPrincipal().toString());
+                } else {
+                    MDC.put("memberId", "anonymous");
+                }
             }
             chain.doFilter(request, response);
         } finally {
