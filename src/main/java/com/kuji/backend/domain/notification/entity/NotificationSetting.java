@@ -37,13 +37,13 @@ public class NotificationSetting extends BaseTimeEntity {
     private boolean kakaoInquiry = true;
 
     // 사업자 전용 알림톡 유형 (주문, 취소, 고객문의)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean kakaoBizOrder = true;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean kakaoBizCancel = true;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean kakaoBizInquiry = true;
 
     // 마케팅 알림 유형 (관심상품 오픈, 재입고, 이벤트/마감임박)
