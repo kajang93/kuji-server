@@ -37,5 +37,19 @@ public class MarketingAgentController {
                 "remainingCount", String.valueOf(remainingCount),
                 "aiGeneratedCopy", generatedCopy
         ));
+    /**
+     * 테스트용: 마케팅 에이전트가 캠페인을 기획하고 운영 에이전트에게 승인을 요청하는 전체 A2A 시나리오
+     */
+    @GetMapping("/test-a2a-campaign")
+    public ResponseEntity<String> testA2aCampaign(
+            @RequestParam(defaultValue = "나의 히어로 아카데미아") String kujiTitle,
+            @RequestParam(defaultValue = "15000") int targetUserCount,
+            @RequestParam(defaultValue = "VIP유저") String userName,
+            @RequestParam(defaultValue = "1시간 전 로그인함") String recentBehavior
+    ) {
+        // 1. 마케팅 에이전트가 카피를 짜고 이벤트(승인 요청)를 발행
+        marketingAgentService.proposeCampaignToOpsAgent(kujiTitle, targetUserCount, userName, recentBehavior);
+        
+        return ResponseEntity.ok("A2A 캠페인 트리거 완료! 백엔드 콘솔 로그(Ops Agent의 심사 결과)를 확인하세요.");
     }
 }

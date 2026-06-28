@@ -77,4 +77,24 @@ public class MarketingAgentService {
             return "[긴급 알림]\n" + userName + "님! " + kujiTitle + " 라스트상까지 단 " + remainingCount + "개 남았습니다!";
         }
     }
+
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+
+    /**
+     * 마케팅 캠페인을 기획하고, 운영 에이전트에게 트래픽 승인을 요청(Event Publish)합니다.
+     */
+    public void proposeCampaignToOpsAgent(String kujiTitle, int targetUserCount, String userName, String recentBehavior) {
+        log.info("[Marketing Agent] 📣 캠페인 기획 시작: '{}' 타겟 유저 수: {}명", kujiTitle, targetUserCount);
+        
+        // 1. 제미나이로 매력적인 카피 생성
+        String copy = generatePersonalizedLastPrizePush(kujiTitle, 5, userName, recentBehavior);
+        
+        // 2. 운영 에이전트(Ops Agent)에게 서버 트래픽 감당이 가능한지 심사 요청
+        String campaignId = java.util.UUID.randomUUID().toString();
+        com.kuji.backend.domain.a2a.event.MarketingCampaignProposalEvent event = 
+            new com.kuji.backend.domain.a2a.event.MarketingCampaignProposalEvent(campaignId, kujiTitle, targetUserCount, copy);
+        
+        log.info("[Marketing Agent] 🤝 운영 에이전트에게 트래픽 승인 요청을 보냅니다. (Event 발송)");
+        eventPublisher.publishEvent(event);
+    }
 }

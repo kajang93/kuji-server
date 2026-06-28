@@ -137,4 +137,55 @@ public class OpsAgentService {
         log.info("[Ops Agent] ❌ 사장님 승인 거절. 조치를 취소합니다.");
         return "❌ 승인이 거절되었습니다. 아무런 조치도 취하지 않습니다.";
     }
+
+    /**
+     * [A2A 통신] 마케팅 에이전트가 이벤트를 던지면, 운영 에이전트가 이를 낚아채서 서버 트래픽 상태를 평가합니다.
+     */
+    @org.springframework.context.event.EventListener
+    public void onMarketingCampaignProposal(com.kuji.backend.domain.a2a.event.MarketingCampaignProposalEvent event) {
+        log.info("[Ops Agent] 🚨 마케팅 에이전트의 트래픽 허가 요청 수신! (타겟 수: {}명)", event.targetUserCount());
+        
+        if ("mock".equals(groqApiKey) || groqChatModel == null) {
+            log.info("[Ops Agent] API 키가 없어 트래픽 자동 승인 처리합니다.");
+            executeMarketingCampaign(event);
+            return;
+        }
+
+        // 가상의 현재 서버 메트릭 (실무에서는 Actuator나 JMX로 수집)
+        double currentCpuUsage = 25.5; // 안정적
+        int activeDbConnections = 12; // 여유로움
+        
+        String prompt = String.format("""
+                너는 이커머스 서버 트래픽을 통제하는 깐깐한 SRE 운영 에이전트야.
+                마케팅 에이전트가 방금 %d명에게 동시에 FCM 푸시 알림을 쏘겠다고 허락을 구했어.
+                현재 서버 상태는 CPU %.1f%%, DB 활성 커넥션 %d개로 꽤 안정적인 상태야.
+                이 트래픽을 허락할지, 분산해서 쏠지 결정해서 아래 형식으로 대답해줘.
+                
+                [결정] (APPROVE 또는 THROTTLE 또는 REJECT 중 택 1)
+                [사유] (결정 사유 1줄)
+                """, event.targetUserCount(), currentCpuUsage, activeDbConnections);
+
+        try {
+            String evaluation = groqChatModel.generate(prompt);
+            log.info("[Ops Agent] 🛡️ 트래픽 심사 결과: \n{}", evaluation);
+            
+            if (evaluation.contains("APPROVE") || evaluation.contains("THROTTLE")) {
+                log.info("[Ops Agent] ✅ 트래픽 승인 완료. 푸시 발송을 지시합니다.");
+                executeMarketingCampaign(event);
+            } else {
+                log.warn("[Ops Agent] ❌ 서버 부하 우려로 캠페인이 반려되었습니다.");
+            }
+        } catch (Exception e) {
+            log.error("[Ops Agent] 심사 실패. 기본 승인 처리합니다: {}", e.getMessage());
+            executeMarketingCampaign(event);
+        }
+    }
+
+    private void executeMarketingCampaign(com.kuji.backend.domain.a2a.event.MarketingCampaignProposalEvent event) {
+        // 실제 운영 환경에서는 여기서 Firebase Admin SDK를 통해 event.proposedCopy() 를 FCM으로 전송
+        log.info("==================================================");
+        log.info("🚀 [최종 실행] {}명에게 라스트상 푸시 알림이 발송되었습니다!!", event.targetUserCount());
+        log.info("문구: \n{}", event.proposedCopy());
+        log.info("==================================================");
+    }
 }
