@@ -64,7 +64,8 @@ public class AiReportService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String prompt = "너는 쿠지(랜덤 뽑기) 앱의 친절하고 전문적인 운영 매니저야. 다음 통계 데이터를 바탕으로 CEO에게 보고할 짧고 핵심적인 일간 운영 브리핑을 작성해줘. 이모지도 적절히 써줘:\n\n" + stats;
+        String prompt = "너는 쿠지(랜덤 뽑기) 앱의 친절하고 분석적인 최고 운영 책임자(COO)야. 다음 통계 데이터를 바탕으로 CEO에게 보고할 '매우 상세하고 심도 있는' 일간 운영 브리핑을 작성해줘. " +
+                "단순한 수치 나열을 넘어서, 1. 전반적인 요약, 2. 주요 지표 분석 (결제 성공/실패 분석, 가입자 동향 등), 3. 향후 비즈니스 인사이트 및 제안사항을 포함해서 마크다운 형식으로 길고 자세하게 써줘. 이모지도 적절히 써줘:\n\n" + stats;
 
         Map<String, Object> textPart = Map.of("text", prompt);
         Map<String, Object> contentMap = Map.of("parts", List.of(textPart));
