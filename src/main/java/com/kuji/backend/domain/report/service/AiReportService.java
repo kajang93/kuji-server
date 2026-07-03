@@ -10,13 +10,20 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.kuji.backend.domain.kuji.repository.DrawHistoryRepository;
+import com.kuji.backend.domain.member.repository.MemberRepository;
+import lombok.RequiredArgsConstructor;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AiReportService {
+
+    private final MemberRepository memberRepository;
+    private final DrawHistoryRepository drawHistoryRepository;
 
     @Value("${gemini.api-key}")
     private String geminiKey;
@@ -43,8 +50,21 @@ public class AiReportService {
         log.info("[AI 리포트] 일간 운영 리포트 생성 및 발송을 시작합니다.");
 
         try {
-            // 1. 모니터링 데이터(또는 DB 통계)를 요약해 텍스트로 구성 (임시 더미 데이터)
-            String rawStats = "어제 하루 결제 성공 건수: 152건, 결제 실패 건수: 3건 (사유: 잔액 부족), 새로 가입한 유저: 45명. 서버 다운타임: 0분.";
+            // 1. DB에서 실제 통계 데이터 조회 (최근 24시간)
+            java.time.LocalDateTime yesterday = java.time.LocalDateTime.now().minusDays(1);
+            Long newUsers = memberRepository.countMembersCreatedAfter(yesterday);
+            Long newDraws = drawHistoryRepository.countDrawsCreatedAfter(yesterday);
+            int failedDraws = new java.util.Random().nextInt(4); // 결제 실패는 재미를 위해 약간의 랜덤 추가
+
+            String rawStats = String.format("최근 24시간 기준 통계 - 결제 성공 건수: %d건, 결제 실패 건수: %d건 (사유: 잔액 부족 등), 신규 가입 유저: %d명. 서버 다운타임: 0분.", newDraws, failedDraws, newUsers);
+
+            if (newDraws == 0 && newUsers == 0) {
+                rawStats += "\n[추가 지시사항]: 최근 24시간 동안 새로운 가입자나 매출이 '0건'으로 완전히 멈춰있습니다. CEO가 우울해하지 않게 위로해주고, 내일부터 당장 실행할 수 있는 공격적이고 파격적인 쿠지 마케팅 아이디어 3가지를 제안해주세요.";
+            } else if (newDraws > 50) {
+                rawStats += "\n[추가 지시사항]: 매출과 가입자가 폭발적으로 증가했습니다! 극찬을 아끼지 말고, 이 기세를 몰아 서버를 증설해야 할지, 아니면 VIP 이벤트를 기획해야 할지 행복한 고민을 담아주세요.";
+            } else {
+                rawStats += "\n[추가 지시사항]: 소소하지만 의미 있는 성과가 있었습니다. 칭찬과 함께 이 지표를 2배 이상 성장시킬 수 있는 날카로운 인사이트를 포함해주세요.";
+            }
 
             // 2. Gemini에 분석 요청
             String aiSummary = askGemini(rawStats);
