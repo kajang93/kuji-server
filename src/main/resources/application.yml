@@ -6,7 +6,10 @@ spring:
   jpa:
     hibernate:
       # ⚠️ create는 재시작마다 전체 테이블을 drop 하므로 절대 사용 금지 (데이터 유실)
-      ddl-auto: update
+      # ⚠️ update도 금지: columnDefinition으로 하드코딩된 PG enum 타입과 충돌해
+      #    부팅마다 enum 재생성 → CASCADE로 컬럼이 삭제되는 문제 확인됨 (2026-07-06)
+      #    스키마 변경이 필요하면 수동 SQL 또는 Flyway 마이그레이션으로 적용할 것
+      ddl-auto: none
     show-sql: false
     properties:
       hibernate:
