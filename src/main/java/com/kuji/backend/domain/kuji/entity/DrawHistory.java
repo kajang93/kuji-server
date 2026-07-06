@@ -8,8 +8,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -31,7 +29,7 @@ public class DrawHistory {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM) // PostgreSQL의 커스텀 Enum(draw_status)과 매핑
+    // PostgreSQL의 커스텀 Enum(draw_status)과 매핑
     @Column(nullable = false)
     private DrawStatus status;
 

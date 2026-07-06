@@ -9,8 +9,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -35,7 +33,6 @@ public class Inquiry extends BaseTimeEntity {
     private String content;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private InquiryStatus status;
 
@@ -49,7 +46,6 @@ public class Inquiry extends BaseTimeEntity {
     private Long shippingId;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "inquiry_type", nullable = false)
     private InquiryCategory inquiryType;
 

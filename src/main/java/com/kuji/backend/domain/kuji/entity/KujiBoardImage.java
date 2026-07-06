@@ -6,8 +6,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "kuji_board_image", indexes = {
@@ -32,7 +30,6 @@ public class KujiBoardImage {
     private Integer sequence;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "image_type", nullable = false)
     private BoardImageType imageType;
 
