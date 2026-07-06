@@ -364,6 +364,9 @@ public class KujiDrawService {
                         .createdAt(h.getCreatedAt())
                         .shippingId(h.getShipping() != null ? h.getShipping().getId() : null)
                         .price(h.getKujiBoard().getPricePerDraw())
+                        .sellerName(h.getKujiBoard().getMember().getBusinessInfo() != null
+                                ? h.getKujiBoard().getMember().getBusinessInfo().getCompanyName()
+                                : h.getKujiBoard().getMember().getNickname())
                         .build())
                 .toList();
     }

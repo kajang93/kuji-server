@@ -22,4 +22,5 @@ public class DrawHistoryResponse {
     private LocalDateTime createdAt;// 당첨 일시
     private Long shippingId;        // 배송 ID
     private Long price;             // 결제 금액 (추가)
+    private String sellerName;      // 판매자명 (추가)
 }

@@ -19,7 +19,8 @@ public record InquiryResponse(
         String answerContent,
         LocalDateTime answeredAt,
         Long shippingId,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String memberName
 ) {
     public static InquiryResponse from(Inquiry inquiry) {
         return InquiryResponse.builder()
@@ -34,6 +35,7 @@ public record InquiryResponse(
                 .answeredAt(inquiry.getAnsweredAt())
                 .shippingId(inquiry.getShippingId())
                 .createdAt(inquiry.getCreatedAt())
+                .memberName(inquiry.getMember().getName())
                 .build();
     }
 }
