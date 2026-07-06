@@ -1,167 +1,112 @@
-# AGENTS.md
+# AGENTS.md (AI 전역 규칙 및 행동 지침)
 
-Behavioral guidelines for AI coding agents (Codex, Claude, etc.). Merge with project-specific instructions as needed.
+Behavioral guidelines for AI coding agents (Codex, Claude, etc.). This file integrates global AI behaviors and project-specific instructions for the OshiKuji Client project.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-## 1. Think Before Coding
+## 🎯 Project-Specific Rules (OshiKuji Client)
 
+### 1. 커밋 메시지 규칙 (가장 중요)
+- 모든 커밋 메시지는 **반드시 100% 한글**로만 작성하세요.
+- `feat:`, `fix:`, `chore:`, `README:` 등 영어로 된 접두사를 **절대 사용하지 마세요**.
+- 변경 사항을 한글로 명확하게 풀어서 설명하세요. (예: "회원가입 문자 인증 연동 완료", "리드미 문서 기능 업데이트")
+
+### 2. 스타일링 및 UI 규칙
+- 프리미엄 UI/UX 디자인을 최우선으로 적용하세요.
+- `Tailwind CSS`를 기본으로 사용하며, 애니메이션은 `Framer Motion`, 아이콘은 `Lucide React`를 사용하세요.
+- 다크 모드를 기본으로 하며, 배경은 `Slate-900`에서 `Indigo-950` 색상(또는 `Deep Black`)을, 강조 색상은 `Rose`, `Amber`, `Cyan` 등을 사용하세요.
+
+### 3. 코드 작성 스타일
+- `TypeScript`를 기반으로 한 함수형 컴포넌트(`React.FC`)를 사용하세요.
+- API 키나 민감한 정보는 절대 코드에 하드코딩하지 말고 환경 변수(`.env`)를 사용하세요.
+
+---
+
+## 🤖 AI Behavioral Guidelines
+
+### 1. Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
-## 2. Simplicity First
-
+### 2. Simplicity First
 **Minimum code that solves the problem. Nothing speculative.**
-
 - No features beyond what was asked.
 - No abstractions for single-use code.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
+### 3. Surgical Changes
 **Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
+### 4. Goal-Driven Execution
 **Define success criteria. Loop until verified.**
+- Transform tasks into verifiable goals (e.g., "Fix the bug" -> "Write a test that reproduces it, then make it pass").
+- Strong success criteria let you loop independently. Weak criteria require constant clarification.
 
-Transform tasks into verifiable goals:
-- "Add validation" -> "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" -> "Write a test that reproduces it, then make it pass"
-- "Refactor X" -> "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] -> verify: [check]
-2. [Step] -> verify: [check]
-3. [Step] -> verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-## 5. Workspace Evidence Before Edits
-
+### 5. Workspace Evidence Before Edits
 **Inspect the actual files you will touch. Don't rely on memory or stale summaries.**
-
-Before changing code:
-- Use `rg` or project tools to find the relevant implementation.
+- Use project tools to find the relevant implementation.
 - Read the exact files and nearby call sites before editing them.
-- Treat open editor tabs, filenames, READMEs, and prior conversation summaries as hints, not proof.
-- If local code disagrees with your assumption, trust the code and update the plan.
+- Treat open editor tabs, filenames, READMEs as hints, not proof.
 
-This is not a new "small change" rule. It exists to prevent confident edits based on imagined code.
-
-## 6. Respect The Worktree
-
+### 6. Respect The Worktree
 **Assume uncommitted changes belong to the user unless you made them.**
-
-When the worktree is dirty:
 - Do not revert, overwrite, or reformat unrelated changes.
 - If user changes touch the same files, read them and adapt.
-- If unrelated files are dirty, ignore them.
-- Never run destructive git commands unless the user explicitly asked for them.
+- Never run destructive git commands unless explicitly asked.
 
-## 7. No Closing Colons (Korean Output)
-
+### 7. No Closing Colons (Korean Output)
 **End Korean sentences with a period, not a colon.**
+- When the user writes in Korean, your output is also Korean.
+- Don't end Korean sentences with `:` even if the next line is a list or example. (Use `.`, `?`, or `!`).
 
-When the user writes in Korean, your output is also Korean:
-- Don't end Korean sentences with `:` even if the next line is a list or example.
-- LLMs trained on English docs leak the colon habit into Korean. Catch it.
-- The test: every Korean sentence terminator should be `.`, `?`, or `!`, not `:`.
-- Colons are fine inside code, key-value pairs, timestamps, or labels. Not as Korean sentence enders.
-
-## 8. File Header Comments in Korean
-
+### 8. File Header Comments in Korean
 **First line of every new source file: a one-line Korean comment stating its role.**
+- `// 사용자 인증 상태를 관리하는 Context Provider`
+- Place it directly under required directives (`'use client'`).
+- Skip config files.
 
-When creating a new source file:
-- TypeScript/JavaScript: `// 사용자 인증 상태를 관리하는 Context Provider`
-- Python: `# KIS API 호출을 비동기로 래핑하는 클라이언트`
-- SQL: `-- 일별 집계 결과를 저장하는 머티리얼라이즈드 뷰`
-- Place it directly under required directives (`'use client'`, `'use server'`, shebang).
-- Skip config files (`*.config.ts`, `package.json`, lockfiles, generated files).
-
-Why: agents read files selectively, not whole codebases. A one-line Korean header gives instant context so the next session can navigate without re-reading everything.
-
-## 9. Plan + Checklist + Context Notes
-
-**Before any non-trivial task, produce three artifacts. Don't start coding without them.**
-
+### 9. Plan + Checklist + Context Notes
+**Before any non-trivial task, produce artifacts. Don't start coding without them.**
 - **Plan** - what we're building and why.
-- **Checklist** (`checklist.md`) - concrete tasks as checkboxes. Tick as you go.
-- **Context Notes** (`context-notes.md`) - decisions made during the work and the reasoning behind them. Append continuously.
+- **Checklist** (`checklist.md`) - concrete tasks as checkboxes.
+- **Context Notes** (`context-notes.md`) - decisions made during the work.
 
-If the user gives only a plan and asks you to start coding, stop and ask: "Should I create the checklist and context notes first?" The next session needs the notes to pick up without re-deriving every decision.
+**⚠️ 중요: `checklist.md`와 `context-notes.md` 등 계획/작업 추적용 임시 아티팩트 파일들은 절대 Git에 커밋하지 마세요.**
 
-## 10. Run Tests Before Marking Complete
-
+### 10. Run Tests Before Marking Complete
 **If you touched code, run the relevant tests before saying "done".**
-
-- `npm test`, `pytest`, `cargo test`, or whatever the project uses - run the smallest relevant check first, then broader checks when risk is high.
-- If tests pass, report the exact command.
-- If tests fail, read the actual error, fix it, and re-run.
+- Run the smallest relevant check first.
 - If no test setup exists, verify the project builds or typechecks.
-- If you cannot run verification, say exactly why.
+- This is non-negotiable.
 
-This is the step coding agents skip most often. Treat it as non-negotiable.
-
-## 11. Verification Evidence In The Final Reply
-
+### 11. Verification Evidence In The Final Reply
 **Report what you actually verified, not what you intended to verify.**
+- Include the command or check that ran.
+- Include the result.
+- Do not write "done" unless backed by a concrete check.
 
-Final responses should include:
-- The command or check that ran, such as `npm test` or `npx tsc --noEmit`.
-- The result, such as "passed", "failed with X", or "not run because Y".
-- Any remaining risk the user should know about.
+### 12. Semantic Commits
+**Commit when one logical change is complete. Don't wait for the user to ask.**
+- Keep it to one meaningful logical change.
+- Never create a commit automatically unless it passes the "describe in one sentence" test.
+*(Note: Project specific rule overrides prefix usage: DO NOT use english prefixes like feat: or fix: for this project.)*
 
-Do not write "done", "fixed", or "works" unless that claim is backed by a concrete check.
-
-## 12. Semantic Commits
-
-**Commit only when the user explicitly requests it.**
-
-- Never create a commit automatically after completing a change.
-- Keep changes uncommitted unless the user asks for a commit.
-- When a commit is requested, use the test: "Can I describe this commit in one sentence?" If yes, commit. If no, the changes are still mixed - split them.
-- Good: "auth 미들웨어 추가". Bad: "auth 추가하고 UI도 고치고 버그도 수정" (split into 3).
-- Don't accumulate unrelated edits and lose the ability to roll back individually.
-- Don't commit just to commit - meaningful units only.
-- When a commit is requested, keep it to one meaningful logical change.
-
-Note: For solo prototypes or throwaway scripts, group commits loosely if it slows you down. The point is reversibility, not ceremony.
-
-## 13. Read Errors, Don't Guess
-
+### 13. Read Errors, Don't Guess
 **Read the actual error/log line. Don't pattern-match from memory.**
-
-When something fails:
 - Read the full error message and stack trace.
-- Check the actual log output, not what you assume it should say.
+- Check the actual log output.
 - Don't apply a "common fix" before confirming the cause.
-- If unclear, add a print/log to verify state - then fix.
 
 ---
-
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, verification is reported with exact checks, and clarifying questions come before implementation rather than after mistakes.
