@@ -68,7 +68,7 @@ class NotificationSettingServiceTest {
         NotificationSetting initialSetting = NotificationSetting.builder()
                 .member(member)
                 .build();
-        initialSetting.updateSettings(true, true, true, true, true, true, true, true);
+        initialSetting.updateSettings(true, true, true, true, true, true, true, true, true, true, true);
         settingRepository.save(initialSetting);
 
         // 2. 부분 업데이트 요청 준비 (kakaoWinning을 false로 끄고, 나머지는 null로 전송)
@@ -77,6 +77,9 @@ class NotificationSettingServiceTest {
                 false,      // kakaoWinning
                 null,       // kakaoDelivery
                 null,       // kakaoInquiry
+                null,       // kakaoBizOrder
+                null,       // kakaoBizCancel
+                null,       // kakaoBizInquiry
                 null,       // marketingOpen
                 null,       // marketingRestock
                 null,       // marketingEvent
