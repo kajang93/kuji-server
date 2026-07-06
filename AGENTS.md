@@ -1,14 +1,8 @@
 # AGENTS.md
 
-Behavioral guidelines for Codex and other coding agents. Merge with project-specific instructions as needed.
+Behavioral guidelines for AI coding agents (Codex, Claude, etc.). Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-## Codex Notes
-
-Codex reads `AGENTS.md` before doing work. Put this file at the project root for repository-wide guidance, or in a nested directory for narrower rules.
-
-Keep this file short and concrete. Codex combines global and project instructions, and large instruction files can crowd out useful task context.
 
 ## 1. Think Before Coding
 
@@ -167,8 +161,6 @@ When something fails:
 - Check the actual log output, not what you assume it should say.
 - Don't apply a "common fix" before confirming the cause.
 - If unclear, add a print/log to verify state - then fix.
-
-This is the step coding agents skip most often after "run tests". They guess from error keywords and apply the most recent pattern. That's how a one-line bug becomes a three-file refactor.
 
 ---
 
