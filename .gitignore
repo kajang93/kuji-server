@@ -54,3 +54,5 @@ logs/
 
 ### SQLTools ###
 *.session.sql
+### Uploaded files (로컬 업로드 산출물) ###
+uploads/
