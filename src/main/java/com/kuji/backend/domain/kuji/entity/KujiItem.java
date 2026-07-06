@@ -15,7 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "kujiitem")
+@Table(name = "kujiitem", indexes = {
+        @Index(name = "idx_kujiitem_board", columnList = "kuji_board_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)

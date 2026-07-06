@@ -14,8 +14,21 @@ public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> 
     List<DrawHistory> findAllByShipping(Shipping shipping); // 배송 꾸러미별 상품 조회용 추가
     List<DrawHistory> findTop20ByOrderByCreatedAtDesc(); // 티커용 최신 20건 조회 (기존)
 
-    // 티커용 상위 등상(A, B, C, Last) 최신 내역 조회
-    @org.springframework.data.jpa.repository.Query("SELECT d FROM DrawHistory d WHERE d.kujiItem.grade LIKE 'A%' OR d.kujiItem.grade LIKE 'B%' OR d.kujiItem.grade LIKE 'C%' OR UPPER(d.kujiItem.grade) LIKE '%LAST%' ORDER BY d.createdAt DESC")
+    // 내 당첨 내역 조회 (연관 엔티티 fetch join으로 N+1 제거)
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT d FROM DrawHistory d " +
+            "JOIN FETCH d.kujiBoard b " +
+            "JOIN FETCH b.member bm " +
+            "LEFT JOIN FETCH bm.businessInfo " +
+            "JOIN FETCH d.kujiItem i " +
+            "LEFT JOIN FETCH i.kujiItemImages " +
+            "LEFT JOIN FETCH d.shipping " +
+            "WHERE d.member.id = :memberId ORDER BY d.createdAt DESC")
+    List<DrawHistory> findAllByMemberIdWithDetails(@org.springframework.data.repository.query.Param("memberId") Long memberId);
+
+    // 티커용 상위 등상(A, B, C, Last) 최신 내역 조회 (fetch join으로 N+1 제거)
+    @org.springframework.data.jpa.repository.Query("SELECT d FROM DrawHistory d " +
+            "JOIN FETCH d.member JOIN FETCH d.kujiBoard JOIN FETCH d.kujiItem i " +
+            "WHERE i.grade LIKE 'A%' OR i.grade LIKE 'B%' OR i.grade LIKE 'C%' OR UPPER(i.grade) LIKE '%LAST%' ORDER BY d.createdAt DESC")
     List<DrawHistory> findRecentHighGradeDraws(org.springframework.data.domain.Pageable pageable);
 
     // [Seller] 사업자의 쿠지판에서 발생한 배송 대기 등 특정 상태의 내역 건수 조회

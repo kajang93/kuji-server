@@ -32,9 +32,12 @@ import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.notification.entity.NotificationType;
 import com.kuji.backend.domain.notification.service.NotificationService;
 import com.kuji.backend.domain.notification.service.WishlistNotificationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.OffsetDateTime;
 import java.time.LocalDateTime;
@@ -66,6 +69,7 @@ public class KujiDrawService {
     private final PaymentRepository paymentRepository;
     private final PaymentSessionRepository paymentSessionRepository;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     /**
      * PG 결제 준비 (세션 생성)
@@ -120,12 +124,14 @@ public class KujiDrawService {
     @Transactional
     public KujiDrawResponse draw(Long memberId, Long boardId, KujiDrawRequest request) {
         int count = (request.getCount() != null) ? request.getCount() : 1;
-        
-        // 1. 쿠지 판 조회 및 비관적 락 적용
-        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
+
+        // 1. 쿠지 판 사전 검증 (락 없이 조회)
+        //    토스 승인 같은 외부 API 호출을 비관적 락 안에서 수행하면
+        //    PG 지연 시 해당 판의 모든 뽑기가 락 대기로 블록되므로, 결제는 락 획득 전에 처리한다.
+        KujiBoard boardPreview = kujiBoardRepository.findById(boardId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
 
-        if (board.getStatus() != BoardStatus.ACTIVE) {
+        if (boardPreview.getStatus() != BoardStatus.ACTIVE) {
             throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
         }
 
@@ -133,7 +139,7 @@ public class KujiDrawService {
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
         // 1-1. 결제 처리 분기
-        int totalRequiredAmount = (int) (board.getPricePerDraw() * count);
+        int totalRequiredAmount = (int) (boardPreview.getPricePerDraw() * count);
         Payment savedPayment = null;
         int usedPoints = 0;
 
@@ -175,12 +181,9 @@ public class KujiDrawService {
             session.updateStatus(SessionStatus.COMPLETED);
             
             // metadata에서 pointsUsed 파싱 및 차감
-            if (session.getMetadata() != null && session.getMetadata().contains("\"pointsUsed\":")) {
+            if (session.getMetadata() != null) {
                 try {
-                    String md = session.getMetadata();
-                    int idx = md.indexOf("\"pointsUsed\":") + 13;
-                    int endIdx = md.indexOf("}", idx);
-                    usedPoints = Integer.parseInt(md.substring(idx, endIdx).trim());
+                    usedPoints = objectMapper.readTree(session.getMetadata()).path("pointsUsed").asInt(0);
                     if (usedPoints > 0) {
                         member.deductPoint(usedPoints);
                     }
@@ -206,11 +209,19 @@ public class KujiDrawService {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
         }
 
+        // 2. 추첨 구간에만 비관적 락 적용 (결제 등 외부 I/O는 위에서 이미 완료)
+        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+
+        if (board.getStatus() != BoardStatus.ACTIVE) {
+            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
+        }
+
         List<KujiItem> winningItems = new ArrayList<>();
         List<DrawHistory> drawHistories = new ArrayList<>();
         Random random = new Random();
 
-        // 2. 전체 상품 목록 한 번만 조회
+        // 2-1. 전체 상품 목록 한 번만 조회
         List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
 
         // 3. 요청한 갯수만큼 반복 추첨
@@ -319,19 +330,26 @@ public class KujiDrawService {
                 .sum();
 
         // 6. 당첨 알림 발송
+        //    FCM 외부 호출은 커밋 이후로 지연: 트랜잭션(및 보드 락) 점유 시간을 줄이고,
+        //    롤백됐는데 당첨 푸시가 나가는 오발송도 방지한다.
         if (!winningItems.isEmpty()) {
             String mainPrizeName = winningItems.get(0).getName();
             String winBody = winningItems.size() > 1
                     ? String.format("축하합니다! [%s] 외 %d건의 상품에 당첨되셨습니다.", mainPrizeName, winningItems.size() - 1)
                     : String.format("축하합니다! [%s] 상품에 당첨되셨습니다.", mainPrizeName);
-            notificationService.sendNotification(
-                    member,
-                    "개 당첨을 축하합니다!",
-                    winBody,
-                    NotificationType.SYSTEM,
-                    "WINNING",
-                    boardId.toString()
-            );
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.sendNotification(
+                            member,
+                            "개 당첨을 축하합니다!",
+                            winBody,
+                            NotificationType.SYSTEM,
+                            "WINNING",
+                            boardId.toString()
+                    );
+                }
+            });
         }
 
         // 7. 마감임박 알림 발송 트리거 (잔여 수량이 5개 이하로 떨어졌을 때, 그리고 당첨 전에는 5개 초과였을 때 딱 한 번만 발송)
@@ -349,8 +367,10 @@ public class KujiDrawService {
     /**
      * 내 당첨 내역(보관함) 조회
      */
+    @Transactional(readOnly = true)
     public List<DrawHistoryResponse> getMyDrawHistory(Long memberId) {
-        List<DrawHistory> histories = drawHistoryRepository.findAllByMemberIdOrderByCreatedAtDesc(memberId);
+        // fetch join으로 board/item/이미지/배송/판매자 정보를 한 번에 로딩 (행당 5~6쿼리 N+1 제거)
+        List<DrawHistory> histories = drawHistoryRepository.findAllByMemberIdWithDetails(memberId);
 
         return histories.stream()
                 .map(h -> DrawHistoryResponse.builder()
@@ -374,6 +394,7 @@ public class KujiDrawService {
     /**
      * 전역 최근 당첨 내역 조회 (티커용)
      */
+    @Transactional(readOnly = true)
     public List<RecentDrawResponse> getRecentDrawHistory() {
         // 최신 20건 중 A, B, C, Last 상만 조회 (티커는 하위 상을 노출하지 않음)
         List<DrawHistory> histories = drawHistoryRepository.findRecentHighGradeDraws(org.springframework.data.domain.PageRequest.of(0, 20));

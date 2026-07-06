@@ -10,7 +10,9 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = "kuji_board_image")
+@Table(name = "kuji_board_image", indexes = {
+        @Index(name = "idx_kuji_board_image_board", columnList = "kuji_board_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class KujiBoardImage {

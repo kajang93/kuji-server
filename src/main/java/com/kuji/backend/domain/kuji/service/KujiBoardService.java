@@ -126,21 +126,15 @@ public class KujiBoardService {
      * 전체 목록 조회 (찜 여부 포함)
      */
     public List<KujiBoardResponse> getAllBoards(Long memberId) {
-        Member member = memberId != null ? memberRepository.findById(memberId).orElse(null) : null;
-        
-        return kujiBoardRepository.findByStatus(com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE).stream()
-                .map(board -> convertToResponse(board, member))
-                .collect(Collectors.toList());
+        List<KujiBoard> boards = kujiBoardRepository.findByStatus(com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE);
+        return convertToResponses(boards, memberId);
     }
 
     /**
      * 특정 판매자의 쿠지 판 목록 조회 (본인이 등록한 것만)
      */
     public List<KujiBoardResponse> getSellerBoards(Long sellerId) {
-        Member member = memberRepository.findById(sellerId).orElse(null);
-        return kujiBoardRepository.findByMemberId(sellerId).stream()
-                .map(board -> convertToResponse(board, member))
-                .collect(Collectors.toList());
+        return convertToResponses(kujiBoardRepository.findByMemberId(sellerId), sellerId);
     }
 
     /**
@@ -180,42 +174,56 @@ public class KujiBoardService {
         kujiBoardRepository.delete(board);
     }
 
-    private KujiBoardResponse convertToResponse(KujiBoard board, Member member) {
-        List<KujiBoardImage> images = kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(board.getId());
-        List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(board.getId());
-
-        int totalCount = items.stream()
-                .mapToInt(item -> item.getTotalQty() != null ? item.getTotalQty() : 0)
-                .sum();
-        int remainCount = items.stream()
-                .mapToInt(item -> item.getRemainQty() != null ? item.getRemainQty() : 0)
-                .sum();
-        int gradeCount = items.size();
-
-        boolean isWished = false;
-        if (member != null) {
-            isWished = wishlistRepository.existsByMemberAndKujiBoard(member, board);
+    /**
+     * 목록 응답 일괄 변환.
+     * 기존에는 보드마다 이미지/아이템/찜 3쿼리(1+3N)를 실행했으나,
+     * 재고 집계·이미지·찜 목록을 각각 1쿼리로 묶어 보드 수와 무관하게 고정 쿼리 수로 처리한다.
+     */
+    private List<KujiBoardResponse> convertToResponses(List<KujiBoard> boards, Long memberId) {
+        if (boards.isEmpty()) {
+            return List.of();
         }
-        
-        return KujiBoardResponse.builder()
-                .id(board.getId())
-                .title(board.getTitle())
-                .pricePerDraw(board.getPricePerDraw())
-                .status(board.getStatus())
-                .rewardRate(board.getRewardRate())
-                .createdAt(board.getCreatedAt())
-                .totalCount(totalCount)
-                .remainCount(remainCount)
-                .gradeCount(gradeCount)
-                .isWished(isWished)
-                .images(images.stream()
-                        .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()
-                                .id(img.getId())
-                                .imageUrl(img.getImageUrl())
-                                .sequence(img.getSequence())
-                                .imageType(img.getImageType() != null ? img.getImageType().name() : "THUMBNAIL")
-                                .build())
-                        .collect(Collectors.toList()))
-                .build();
+
+        List<Long> boardIds = boards.stream().map(KujiBoard::getId).toList();
+
+        java.util.Map<Long, KujiItemRepository.BoardStockSummary> stockMap =
+                kujiItemRepository.summarizeByBoardIds(boardIds).stream()
+                        .collect(Collectors.toMap(KujiItemRepository.BoardStockSummary::getBoardId, s -> s));
+
+        java.util.Map<Long, List<KujiBoardImage>> imageMap =
+                kujiBoardImageRepository.findAllByKujiBoardIdInOrderBySequenceAsc(boardIds).stream()
+                        .collect(Collectors.groupingBy(img -> img.getKujiBoard().getId()));
+
+        java.util.Set<Long> wishedBoardIds = memberId != null
+                ? new java.util.HashSet<>(wishlistRepository.findKujiBoardIdsByMemberId(memberId))
+                : java.util.Set.of();
+
+        return boards.stream()
+                .map(board -> {
+                    KujiItemRepository.BoardStockSummary stock = stockMap.get(board.getId());
+                    List<KujiBoardImage> images = imageMap.getOrDefault(board.getId(), List.of());
+
+                    return KujiBoardResponse.builder()
+                            .id(board.getId())
+                            .title(board.getTitle())
+                            .pricePerDraw(board.getPricePerDraw())
+                            .status(board.getStatus())
+                            .rewardRate(board.getRewardRate())
+                            .createdAt(board.getCreatedAt())
+                            .totalCount(stock != null ? stock.getTotalQty().intValue() : 0)
+                            .remainCount(stock != null ? stock.getRemainQty().intValue() : 0)
+                            .gradeCount(stock != null ? stock.getGradeCount().intValue() : 0)
+                            .isWished(wishedBoardIds.contains(board.getId()))
+                            .images(images.stream()
+                                    .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()
+                                            .id(img.getId())
+                                            .imageUrl(img.getImageUrl())
+                                            .sequence(img.getSequence())
+                                            .imageType(img.getImageType() != null ? img.getImageType().name() : "THUMBNAIL")
+                                            .build())
+                                    .collect(Collectors.toList()))
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }
