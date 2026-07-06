@@ -9,8 +9,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 
@@ -37,8 +35,8 @@ public class Member extends BaseTimeEntity {
 
     // --- OAuth 및 권한 정보 ---
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM) // ★ PostgreSQL의 커스텀 Enum(role_type)과 매핑하기 위해 추가
     @Column(nullable = false, length = 20)
+    @org.hibernate.annotations.ColumnDefault("'USER'")
     private RoleType role;
 
     @Enumerated(EnumType.STRING)

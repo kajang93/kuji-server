@@ -9,8 +9,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "kujiboard")
@@ -29,8 +27,8 @@ public class KujiBoard extends BaseTimeEntity {
     private Long pricePerDraw;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
+    @org.hibernate.annotations.ColumnDefault("'PREPARING'")
     private BoardStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
