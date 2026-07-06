@@ -5,12 +5,15 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: create
-    show-sql: true
+      # ⚠️ create는 재시작마다 전체 테이블을 drop 하므로 절대 사용 금지 (데이터 유실)
+      ddl-auto: update
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # 레이지 로딩 N+1 완화: 지연 로딩 발생 시 IN 절로 최대 100건씩 묶어서 조회
+        default_batch_fetch_size: 100
   servlet:
     multipart:
       max-file-size: 5MB
@@ -32,8 +35,7 @@ jwt:
   # 💡 우리 서버만의 비밀키 (환경변수 또는 application-secret.yml 주입)
   secret: ${JWT_SECRET_KEY}
   # 💡 토큰 유효 시간 (밀리초 단위, 30분 = 1800000)
-  #expiration: 1800000
-  expiration: 300000
+  expiration: 1800000
   # 💡 리프레시 토큰 유효 시간 (밀리초 단위, 14일 = 1209600000)
   refresh-expiration: 1209600000
 
