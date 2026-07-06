@@ -35,7 +35,7 @@ public record InquiryResponse(
                 .answeredAt(inquiry.getAnsweredAt())
                 .shippingId(inquiry.getShippingId())
                 .createdAt(inquiry.getCreatedAt())
-                .memberName(inquiry.getMember().getName())
+                .memberName(inquiry.getMember().getNickname())
                 .build();
     }
 }
