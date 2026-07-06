@@ -40,7 +40,7 @@ public class BusinessInfo extends BaseTimeEntity {
     private String licenseImageUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, columnDefinition = "biz_status")
+    @Column(nullable = false, length = 20)
     private BusinessStatus status;
 
     @Column(name = "reject_reason", length = 255)
