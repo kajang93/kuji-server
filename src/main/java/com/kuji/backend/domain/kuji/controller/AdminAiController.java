@@ -1,6 +1,8 @@
 package com.kuji.backend.domain.kuji.controller;
 
+import com.kuji.backend.domain.kuji.dto.KujiItemSuggestionResponse;
 import com.kuji.backend.domain.kuji.service.AiVisionService;
+import com.kuji.backend.domain.kuji.service.KujiItemSuggestionService;
 import com.kuji.backend.domain.report.service.AiReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import java.util.Map;
 public class AdminAiController {
 
     private final AiVisionService aiVisionService;
+    private final KujiItemSuggestionService kujiItemSuggestionService;
     private final AiReportService aiReportService;
 
     /**
@@ -32,6 +35,27 @@ public class AdminAiController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "AI 처리 중 오류가 발생했습니다: " + e.getMessage()));
         }
+    }
+
+    /**
+     * 배경 제거 버튼에서만 호출하는 전용 API
+     */
+    @PostMapping("/remove-background")
+    public ResponseEntity<Map<String, Object>> removeBackground(@RequestParam("file") MultipartFile file) {
+        try {
+            Map<String, Object> result = aiVisionService.removeBackgroundAndUpload(file);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "배경 제거 중 오류가 발생했습니다: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 누적 등록 데이터를 기반으로 등급별 상품명/재고 입력값을 추천
+     */
+    @GetMapping("/item-suggestion")
+    public ResponseEntity<KujiItemSuggestionResponse> suggestItemFields(@RequestParam("grade") String grade) {
+        return ResponseEntity.ok(kujiItemSuggestionService.suggestByGrade(grade));
     }
 
     /**

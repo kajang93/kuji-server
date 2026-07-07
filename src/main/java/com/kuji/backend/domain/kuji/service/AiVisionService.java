@@ -50,6 +50,15 @@ public class AiVisionService {
         return result;
     }
 
+    public Map<String, Object> removeBackgroundAndUpload(MultipartFile file) throws Exception {
+        byte[] noBgImageBytes = removeBackground(file);
+        String imageUrl = s3Service.uploadFile("prizes", file.getOriginalFilename() + "_nobg.png", noBgImageBytes, "image/png");
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("imageUrl", imageUrl);
+        return result;
+    }
+
     /**
      * Hugging Face RMBG-1.4 모델을 호출하여 배경 제거
      */
