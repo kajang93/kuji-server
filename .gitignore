@@ -56,5 +56,5 @@ logs/
 *.session.sql
 ### Uploaded files (로컬 업로드 산출물) ###
 uploads/
-.checklist.md
-.context-notes.md
+checklist.md
+context-notes.md
