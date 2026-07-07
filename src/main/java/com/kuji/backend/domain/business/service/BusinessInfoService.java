@@ -17,9 +17,9 @@ public class BusinessInfoService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Long registerBusiness(String email, BusinessRegistrationRequest request) {
-        // 1. 토큰에서 꺼낸 이메일로 진짜 회원 찾기
-        Member member = memberRepository.findByEmail(email)
+    public Long registerBusiness(Long memberId, BusinessRegistrationRequest request) {
+        // 1. 토큰에서 꺼낸 회원 ID로 진짜 회원 찾기
+        Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
 
         // 2. 이미 사업자를 등록한 사람인지 방어 로직! (1:1 관계니까)
