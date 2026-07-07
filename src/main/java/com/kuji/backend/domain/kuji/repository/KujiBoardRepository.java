@@ -15,6 +15,7 @@ import java.util.Optional;
 @Repository
 public interface KujiBoardRepository extends JpaRepository<KujiBoard, Long> {
     List<KujiBoard> findByMemberId(Long memberId);
+    Long countByMemberId(Long memberId);
     List<KujiBoard> findByStatus(BoardStatus status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select b from KujiBoard b where b.id = :id")

@@ -8,6 +8,8 @@ import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import com.kuji.backend.domain.member.repository.BusinessInfoRepository;
+import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
+import com.kuji.backend.domain.kuji.repository.WishlistRepository;
 import com.kuji.backend.domain.statistics.dto.AdminSummaryResponse;
 import com.kuji.backend.domain.statistics.dto.DailySalesResponse;
 import com.kuji.backend.domain.statistics.dto.SellerSummaryResponse;
@@ -33,6 +35,8 @@ public class StatisticsService {
     private final MemberRepository memberRepository;
     private final DrawHistoryRepository drawHistoryRepository;
     private final BusinessInfoRepository businessInfoRepository;
+    private final KujiBoardRepository kujiBoardRepository;
+    private final WishlistRepository wishlistRepository;
 
     /**
      * [Admin] 전체 요약 통계
@@ -100,12 +104,20 @@ public class StatisticsService {
         // 정산금 = 전월 매출 * (100 - 수수료율) / 100
         Long estimatedSettlement = lastMonthSales * (100 - appliedFeeRate) / 100;
 
+        // 5. 등록된 상품 수
+        Long totalRegisteredProducts = kujiBoardRepository.countByMemberId(sellerId);
+
+        // 6. 찜 받은 횟수
+        Long totalWishlistCount = wishlistRepository.countBySellerId(sellerId);
+
         return SellerSummaryResponse.builder()
-                .totalSalesPoints(totalSales)
-                .estimatedSettlement(estimatedSettlement)
+                .totalSalesPoints(totalSales != null ? totalSales : 0L)
+                .estimatedSettlement(estimatedSettlement != null ? estimatedSettlement : 0L)
                 .appliedFeeRate(appliedFeeRate)
                 .isFirstMonthFree(isPromotionActive) // 프론트엔드 호환성을 위해 이름 유지 또는 변경 가능
-                .pendingShippingCount(pendingShipping)
+                .pendingShippingCount(pendingShipping != null ? pendingShipping : 0L)
+                .totalRegisteredProducts(totalRegisteredProducts != null ? totalRegisteredProducts : 0L)
+                .totalWishlistCount(totalWishlistCount != null ? totalWishlistCount : 0L)
                 .build();
     }
 

@@ -18,4 +18,7 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     // 목록 화면용: 회원이 찜한 보드 ID 일괄 조회 (보드별 exists 쿼리 → 1쿼리)
     @org.springframework.data.jpa.repository.Query("SELECT w.kujiBoard.id FROM Wishlist w WHERE w.member.id = :memberId")
     List<Long> findKujiBoardIdsByMemberId(@org.springframework.data.repository.query.Param("memberId") Long memberId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(w) FROM Wishlist w WHERE w.kujiBoard.member.id = :sellerId")
+    Long countBySellerId(@org.springframework.data.repository.query.Param("sellerId") Long sellerId);
 }
