@@ -1,5 +1,6 @@
 package com.kuji.backend.domain.notification.service;
 
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.*;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.repository.MemberRepository;
@@ -84,10 +85,18 @@ public class NotificationService {
                 .targetId(targetId)
                 .build();
         notificationRepository.save(notification);
+        log.info("[인앱 알림 저장] notificationId={}, memberId={}, type={}, subType={}",
+                notification.getId(), receiver.getId(), type, subType);
 
         // 2. 수신 설정 필터링 (스마트폰 외부 푸시/카톡 알림을 꺼둔 경우 여기서 스킵)
         if (!isNotificationAllowed(receiver, type, subType)) {
             log.info("[외부 푸시 발송 스킵] 수신 설정 OFF. DB에만 저장됨. memberId={}, type={}, subType={}", receiver.getId(), type, subType);
+            return;
+        }
+
+        if (FirebaseApp.getApps().isEmpty()) {
+            log.warn("[외부 푸시 발송 스킵] Firebase Admin SDK가 초기화되지 않았습니다. DB에만 저장됨. memberId={}, type={}, subType={}",
+                    receiver.getId(), type, subType);
             return;
         }
 
@@ -119,6 +128,8 @@ public class NotificationService {
         // 5. FCM 발송
         try {
             BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
+            log.info("[FCM 푸시 발송 결과] memberId={}, type={}, subType={}, tokenCount={}, successCount={}, failureCount={}",
+                    receiver.getId(), type, subType, tokens.size(), response.getSuccessCount(), response.getFailureCount());
 
             // 6. 유효하지 않은 토큰(앱 삭제 등) 자동 정리
             if (response.getFailureCount() > 0) {
@@ -130,6 +141,8 @@ public class NotificationService {
                         if ("UNREGISTERED".equals(errorCode) || "INVALID_ARGUMENT".equals(errorCode)) {
                             failedTokens.add(tokens.get(i));
                         }
+                        log.warn("[FCM 푸시 개별 실패] memberId={}, tokenIndex={}, errorCode={}, message={}",
+                                receiver.getId(), i, errorCode, responses.get(i).getException().getMessage());
                     }
                 }
                 failedTokens.forEach(deviceTokenRepository::deleteByToken);
@@ -137,6 +150,9 @@ public class NotificationService {
             }
         } catch (FirebaseMessagingException e) {
             log.error("FCM 푸시 알림 발송 실패: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("FCM 푸시 알림 발송 중 예상치 못한 오류가 발생했습니다. DB 알림은 유지됩니다. memberId={}, reason={}",
+                    receiver.getId(), e.getMessage());
         }
     }
 
