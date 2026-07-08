@@ -342,7 +342,7 @@ public class KujiDrawService {
                 public void afterCommit() {
                     notificationService.sendNotification(
                             member,
-                            "개 당첨을 축하합니다!",
+                            "쿠지 당첨을 축하합니다!",
                             winBody,
                             NotificationType.SYSTEM,
                             "WINNING",

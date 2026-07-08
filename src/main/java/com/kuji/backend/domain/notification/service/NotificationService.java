@@ -117,6 +117,7 @@ public class NotificationService {
                 .putData("title", title)
                 .putData("body", body)
                 .putData("type", type.name())
+                .putData("subType", subType != null ? subType : "")
                 .putData("targetId", targetId != null ? targetId : "")
                 .addAllTokens(tokens)
                 .setNotification(com.google.firebase.messaging.Notification.builder()
