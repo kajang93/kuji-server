@@ -72,7 +72,7 @@ public class ShippingController {
             @PathVariable Long id,
             @RequestBody TrackingRequest request) {
         
-        shippingService.updateTrackingInfo(id, request.courierName(), request.trackingNumber());
+        shippingService.updateTrackingInfo(id, request.courierName(), request.trackingNumber(), request.courierPhone());
         return ResponseEntity.ok().build();
     }
 

@@ -16,8 +16,8 @@ public class TrackingResponse {
     private String trackingNumber;    // 송장번호
     private String courier;           // 택배사 이름
     private String recipientAddress;  // 배송지 주소
-    private String deliveryDriver;    // 배송 기사 이름 (Mock)
-    private String deliveryDriverPhone; // 기사 연락처 (Mock)
+    private String deliveryDriver;    // 배송 기사 이름 (택배 API 미제공 시 '미배정')
+    private String deliveryDriverPhone; // 택배사/기사 연락처 (판매자 등록값, 없으면 null)
     private List<TrackingDetail> history; // 배송 상세 타임라인
 
     @Getter

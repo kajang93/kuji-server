@@ -49,6 +49,9 @@ public class Shipping {
     @Column(name = "courier_name", nullable = false, length = 20) // DB 스키마가 NOT NULL이므로 기본값 설정
     private String courierName = "-";
 
+    @Column(name = "courier_phone", length = 20) // 택배사/기사 연락처 (배송 시작 시 판매자 입력, 선택)
+    private String courierPhone;
+
     @Column(name = "delivery_message", length = 255)
     private String deliveryMessage;
 
@@ -80,9 +83,10 @@ public class Shipping {
     /**
      * 송장 번호 및 택배사 등록 (배송 시작 시 호출)
      */
-    public void startShipping(String courierName, String trackingNumber) {
+    public void startShipping(String courierName, String trackingNumber, String courierPhone) {
         this.courierName = courierName;
         this.trackingNumber = trackingNumber;
+        this.courierPhone = courierPhone;
         this.status = ShippingStatus.SHIPPING;
     }
 

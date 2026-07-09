@@ -43,7 +43,7 @@ public class DeliveryTrackingService {
                     .courier(shipping.getCourierName() != null ? shipping.getCourierName() : "-")
                     .recipientAddress(shipping.getAddress())
                     .deliveryDriver("미배정")
-                    .deliveryDriverPhone("-")
+                    .deliveryDriverPhone(shipping.getCourierPhone())
                     .history(List.of(
                             TrackingResponse.TrackingDetail.builder()
                                     .date(shipping.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
@@ -86,7 +86,8 @@ public class DeliveryTrackingService {
             List<Map<String, Object>> progresses = (List<Map<String, Object>>) response.get("progresses");
             List<TrackingResponse.TrackingDetail> history = new ArrayList<>();
             String driverName = "미배정";
-            String driverPhone = "-";
+            // 판매자가 등록한 택배사/기사 연락처 (없으면 null → 클라이언트에서 미표시)
+            String driverPhone = shipping.getCourierPhone();
 
             if (progresses != null && !progresses.isEmpty()) {
                 for (Map<String, Object> progress : progresses) {

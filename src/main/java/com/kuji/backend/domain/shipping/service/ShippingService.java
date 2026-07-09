@@ -118,11 +118,11 @@ public class ShippingService {
      * 운송장 번호 등록 및 배송 시작
      */
     @Transactional
-    public void updateTrackingInfo(Long shippingId, String courierName, String trackingNumber) {
+    public void updateTrackingInfo(Long shippingId, String courierName, String trackingNumber, String courierPhone) {
         Shipping shipping = shippingRepository.findById(shippingId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송 정보입니다."));
 
-        shipping.startShipping(courierName, trackingNumber);
+        shipping.startShipping(courierName, trackingNumber, courierPhone);
 
         // 연관된 모든 당첨 이력의 상태도 SHIPPING(배송 중)으로 업데이트
         List<DrawHistory> drawHistories = drawHistoryRepository.findAllByShipping(shipping);
