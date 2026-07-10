@@ -61,7 +61,7 @@ public class KujiItemSuggestionService {
 
     private Integer pickQuantity(String grade, List<Integer> quantities) {
         if (quantities.isEmpty()) {
-            return isScarceGrade(grade) ? 1 : null;
+            return getDefaultQuantityForGrade(grade);
         }
 
         return quantities.stream()
@@ -72,7 +72,14 @@ public class KujiItemSuggestionService {
                         .<Map.Entry<Integer, Long>>comparingLong(Map.Entry::getValue)
                         .thenComparing(Map.Entry::getKey, Comparator.reverseOrder()))
                 .map(Map.Entry::getKey)
-                .orElseGet(() -> isScarceGrade(grade) ? 1 : null);
+                .orElseGet(() -> getDefaultQuantityForGrade(grade));
+    }
+
+    private Integer getDefaultQuantityForGrade(String grade) {
+        if (isScarceGrade(grade)) return 1;
+        if (grade.equals("C") || grade.equals("D")) return 2;
+        if (grade.equals("E") || grade.equals("F")) return 10;
+        return 15;
     }
 
     private boolean isScarceGrade(String grade) {
