@@ -68,7 +68,8 @@ management:
 
 gemini:
   api-key: ${GEMINI_API_KEY:mock}
-  model: ${GEMINI_MODEL:gemini-1.5-flash}
+  # gemini-1.5-flash는 2025년 퇴역(404)되어 gemini-2.5-flash로 변경 (매일 9시 AI 브리핑 실패 원인이었음)
+  model: ${GEMINI_MODEL:gemini-2.5-flash}
 
 groq:
   api-key: ${GROQ_API_KEY:mock}
