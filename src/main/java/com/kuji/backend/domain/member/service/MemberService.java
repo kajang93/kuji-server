@@ -435,13 +435,24 @@ public class MemberService {
                 .orElse(members.get(0));
         
         // 인증에 성공했으므로 마스킹 없이 전체 이메일을 반환하되, 다중 계정일 경우 소셜 여부 및 최근 접속 표시
+        // 이메일 없는 소셜 계정을 제외(filter)하면 빈 결과가 내려가 '이메일 없음'처럼 보이므로,
+        // 제외하지 않고 "간편가입 계정" 안내 문구를 반환한다
         final int memberCount = members.size();
         return members.stream()
-                .filter(m -> m.getEmail() != null && !m.getEmail().isBlank())
                 .map(m -> {
-                    String socialLabel = m.getSocialType() == SocialType.LOCAL ? " (일반 가입)" : " [" + m.getSocialType().name() + " 간편가입]";
                     String recentLabel = (m.equals(mostRecentMember) && memberCount > 1) ? " ⭐(최근 접속)" : "";
-                    return m.getEmail() + socialLabel + recentLabel;
+                    String socialName = switch (m.getSocialType()) {
+                        case KAKAO -> "카카오";
+                        case NAVER -> "네이버";
+                        case GOOGLE -> "구글";
+                        default -> null;
+                    };
+                    boolean hasEmail = m.getEmail() != null && !m.getEmail().isBlank();
+                    if (socialName != null && !hasEmail) {
+                        return socialName + " 간편가입 계정입니다. " + socialName + " 로그인으로 이용해주세요." + recentLabel;
+                    }
+                    String socialLabel = socialName == null ? " (일반 가입)" : " [" + socialName + " 간편가입]";
+                    return (hasEmail ? m.getEmail() : "(이메일 미등록)") + socialLabel + recentLabel;
                 })
                 .collect(java.util.stream.Collectors.joining("\n")); // 가독성을 위해 줄바꿈(\n)으로 연결
     }
