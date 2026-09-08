@@ -92,8 +92,8 @@ public class InquiryService {
         // 문의 답변 알림 발송
         notificationService.sendNotification(
                 inquiry.getMember(),
-                "1:1 문의 답변 완료 · 쿠지샵",
-                String.format("문의하신 '%s'에 답변이 등록되었습니다.", inquiry.getTitle()),
+                "1:1 문의 답변 등록",
+                String.format("작성하신 '%s' 문의에 답변이 완료되었습니다.", inquiry.getTitle()),
                 NotificationType.COMMENT,
                 "INQUIRY",
                 id.toString()
