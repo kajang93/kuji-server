@@ -79,3 +79,9 @@ huggingface:
 
 slack:
   webhook-url: ${SLACK_WEBHOOK_URL:mock}
+
+threads:
+  access-token: ${THREADS_ACCESS_TOKEN:mock}
+  user-id: ${THREADS_USER_ID:28861832050080267}
+  enabled: ${THREADS_ENABLED:true}
+

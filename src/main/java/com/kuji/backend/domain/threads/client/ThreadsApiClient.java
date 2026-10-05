@@ -1,0 +1,179 @@
+package com.kuji.backend.domain.threads.client;
+
+import com.kuji.backend.domain.threads.dto.ThreadsAccountInfo;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+
+@Slf4j
+@Component
+public class ThreadsApiClient {
+
+    private static final String BASE_URL = "https://graph.threads.net/v1.0";
+
+    @Value("${threads.access-token}")
+    private String accessToken;
+
+    @Value("${threads.user-id:me}")
+    private String configuredUserId;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    /**
+     * 현재 연동된 Threads 계정 정보 조회 (id, username, name)
+     */
+    public ThreadsAccountInfo getMe() {
+        String url = String.format("%s/me?fields=id,username,name&access_token=%s", BASE_URL, accessToken);
+        try {
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body != null) {
+                return ThreadsAccountInfo.builder()
+                        .id(String.valueOf(body.get("id")))
+                        .username((String) body.get("username"))
+                        .name((String) body.get("name"))
+                        .build();
+            }
+        } catch (Exception e) {
+            log.error("[Threads API] 계정 정보 조회 실패: {}", e.getMessage());
+            throw new RuntimeException("Threads 계정 정보 조회 실패: " + e.getMessage(), e);
+        }
+        return null;
+    }
+
+    /**
+     * 타겟 Threads 사용자 ID 획득 (설정값 우선, 없으면 me)
+     */
+    public String getTargetUserId() {
+        if (configuredUserId != null && !configuredUserId.isBlank() && !"mock".equalsIgnoreCase(configuredUserId)) {
+            return configuredUserId;
+        }
+        return "me";
+    }
+
+    /**
+     * 본문 텍스트 포스트 컨테이너 생성
+     * 
+     * @param text 게시글 내용
+     * @return creation_id (미디어 컨테이너 ID)
+     */
+    public String createTextPostContainer(String text) {
+        String userId = getTargetUserId();
+        String url = String.format("%s/%s/threads", BASE_URL, userId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("media_type", "TEXT");
+        params.add("text", text);
+        params.add("access_token", accessToken);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+
+        try {
+            log.info("[Threads API] 포스트 컨테이너 생성 요청 (userId: {})", userId);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body != null && body.containsKey("id")) {
+                String creationId = String.valueOf(body.get("id"));
+                log.info("[Threads API] 포스트 컨테이너 생성 성공 (creationId: {})", creationId);
+                return creationId;
+            }
+            throw new RuntimeException("Threads 컨테이너 생성 응답에 id가 없습니다: " + body);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("[Threads API] 컨테이너 생성 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Threads 컨테이너 생성 오류: " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("[Threads API] 컨테이너 생성 예외: {}", e.getMessage());
+            throw new RuntimeException("Threads 컨테이너 생성 예외: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 특정 포스트에 달릴 댓글(Reply) 컨테이너 생성
+     * 
+     * @param replyToPostId 답글을 달 원본 게시글 ID
+     * @param replyText     댓글 내용
+     * @return creation_id (댓글 미디어 컨테이너 ID)
+     */
+    public String createReplyContainer(String replyToPostId, String replyText) {
+        String userId = getTargetUserId();
+        String url = String.format("%s/%s/threads", BASE_URL, userId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("media_type", "TEXT");
+        params.add("text", replyText);
+        params.add("reply_to_id", replyToPostId);
+        params.add("access_token", accessToken);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+
+        try {
+            log.info("[Threads API] 댓글 컨테이너 생성 요청 (replyTo: {})", replyToPostId);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body != null && body.containsKey("id")) {
+                String replyCreationId = String.valueOf(body.get("id"));
+                log.info("[Threads API] 댓글 컨테이너 생성 성공 (replyCreationId: {})", replyCreationId);
+                return replyCreationId;
+            }
+            throw new RuntimeException("Threads 댓글 컨테이너 생성 응답에 id가 없습니다: " + body);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("[Threads API] 댓글 컨테이너 생성 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Threads 댓글 컨테이너 생성 오류: " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("[Threads API] 댓글 컨테이너 생성 예외: {}", e.getMessage());
+            throw new RuntimeException("Threads 댓글 컨테이너 생성 예외: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 생성된 컨테이너를 실제로 피드에 게시 (Publish)
+     * 
+     * @param creationId 미디어 컨테이너 ID
+     * @return 게시된 Threads 포스트 ID
+     */
+    public String publishContainer(String creationId) {
+        String userId = getTargetUserId();
+        String url = String.format("%s/%s/threads_publish", BASE_URL, userId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("creation_id", creationId);
+        params.add("access_token", accessToken);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+
+        try {
+            log.info("[Threads API] 컨테이너 게시(Publish) 요청 (creationId: {})", creationId);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            if (body != null && body.containsKey("id")) {
+                String publishedId = String.valueOf(body.get("id"));
+                log.info("[Threads API] ✅ Threads 게시 완료 (publishedId: {})", publishedId);
+                return publishedId;
+            }
+            throw new RuntimeException("Threads 게시 응답에 id가 없습니다: " + body);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("[Threads API] 게시 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Threads 게시 오류: " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("[Threads API] 게시 예외: {}", e.getMessage());
+            throw new RuntimeException("Threads 게시 예외: " + e.getMessage(), e);
+        }
+    }
+}

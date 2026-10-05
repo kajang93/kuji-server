@@ -46,16 +46,23 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> 
-                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
-                        .accessDeniedHandler((request, response, accessDeniedException) -> 
-                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
+                        .authenticationEntryPoint((request, response, authException) -> response
+                                .sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                        .accessDeniedHandler((request, response, accessDeniedException) -> response
+                                .sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden")))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.web.cors.CorsUtils::isPreFlightRequest).permitAll()
-                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao", "/api/members/login/naver", "/api/members/login/google", "/error", "/ws/**").permitAll()
-                        .requestMatchers("/api/members/refresh", "/api/members/check-email", "/api/members/find-id", "/api/members/send-sms", "/api/members/verify-sms", "/api/members/reset-password").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**", "/api/posts", "/api/posts/**", "/api/ops/**", "/api/marketing/**").permitAll()
+                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao",
+                                "/api/members/login/naver", "/api/members/login/google", "/error", "/ws/**")
+                        .permitAll()
+                        .requestMatchers("/api/members/refresh", "/api/members/check-email", "/api/members/find-id",
+                                "/api/members/send-sms", "/api/members/verify-sms", "/api/members/reset-password")
+                        .permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**",
+                                "/api/posts", "/api/posts/**", "/api/ops/**")
+                        .permitAll()
+                        .requestMatchers("/api/marketing/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // 💡 관리자 전용 경로 추가!
                         .anyRequest().authenticated())
@@ -71,12 +78,11 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
-                "capacitor://localhost",   // iOS Capacitor 앱
-                "http://localhost",         // Android Capacitor 앱
-                "ionic://localhost",          // Ionic 호환
+                "capacitor://localhost", // iOS Capacitor 앱
+                "http://localhost", // Android Capacitor 앱
+                "ionic://localhost", // Ionic 호환
                 "https://kujishop.shop",
-                "https://www.kujishop.shop"
-        ));
+                "https://www.kujishop.shop"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
