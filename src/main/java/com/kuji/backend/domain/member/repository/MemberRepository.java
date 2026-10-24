@@ -3,11 +3,19 @@ package com.kuji.backend.domain.member.repository;
 import com.kuji.backend.domain.member.entity.Member;
 import com.kuji.backend.domain.member.enums.SocialType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 import java.util.List;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Member m where m.id = :id")
+    Optional<Member> findByIdWithLock(@Param("id") Long id);
+
     // 💡 실무 팁: 이메일로 회원을 찾는 기능은 로그인/중복체크 시 필수입니다.
     Optional<Member> findByEmail(String email);
 
@@ -17,6 +25,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     // [Admin] 특정 시점 이후 가입한 회원 수 집계 (예: 오늘 신규 가입자)
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(m) FROM Member m WHERE m.createdAt >= :startDate")
     Long countMembersCreatedAfter(@org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate);
+
+    // 운영 리포트는 시작 시각을 포함하고 종료 시각을 제외해 하루를 집계합니다.
+    @Query("SELECT COUNT(m) FROM Member m WHERE m.createdAt >= :startDate AND m.createdAt < :endDate")
+    Long countMembersCreatedBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                                    @Param("endDate") java.time.LocalDateTime endDate);
 
     List<Member> findAllByPhoneNumber(String phoneNumber);
     

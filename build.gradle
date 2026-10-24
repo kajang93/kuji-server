@@ -1,11 +1,21 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.4'
+    id 'org.springframework.boot' version '3.5.16'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.kuji'
 version = '0.0.1-SNAPSHOT'
+
+// 현재 버전 계열에서 보안 패치를 적용합니다.
+ext['jackson-bom.version'] = '2.21.7'
+ext['netty.version'] = '4.1.137.Final'
+ext['postgresql.version'] = '42.7.12'
+ext['tomcat.version'] = '10.1.59'
+ext['log4j2.version'] = '2.25.5'
+ext['httpclient5.version'] = '5.6.3'
+ext['httpcore5.version'] = '5.4.3'
+ext['opentelemetry.version'] = '1.63.0'
 
 java {
     toolchain {
@@ -65,7 +75,7 @@ dependencies {
     implementation 'net.coobird:thumbnailator:0.4.20' // 이미지 압축/리사이징 용량 최적화
 
     // === 6. Firebase Admin SDK (FCM 알림 발송용) ===
-    implementation 'com.google.firebase:firebase-admin:9.2.0'
+    implementation 'com.google.firebase:firebase-admin:9.11.0'
 
     // === 7. 로깅 (JSON 포맷 출력용) ===
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
@@ -76,6 +86,11 @@ dependencies {
     implementation 'dev.langchain4j:langchain4j-open-ai:0.35.0'
     // 제미나이(마케팅) 연동 모듈
     implementation 'dev.langchain4j:langchain4j-google-ai-gemini:0.35.0'
+
+    // 간접 의존성의 기존 버전 계열 보안 패치를 적용합니다.
+    constraints {
+        implementation 'org.apache.opennlp:opennlp-tools:1.9.5'
+    }
 }
 // --- Querydsl Q-Class 생성 설정 ---
 def querydslDir = "$buildDir/generated/querydsl"

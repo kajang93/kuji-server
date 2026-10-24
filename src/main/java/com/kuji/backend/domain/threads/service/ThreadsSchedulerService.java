@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.kuji.backend.global.infra.ExternalApiHttpClient;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -33,7 +34,7 @@ public class ThreadsSchedulerService {
     @Value("${slack.webhook-url:mock}")
     private String slackWebhookUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = ExternalApiHttpClient.createRestTemplate();
 
     /**
      * 매일 오전 9시에 Threads에 글을 게시하고 첫 댓글도 자동으로 작성합니다.
@@ -166,7 +167,7 @@ public class ThreadsSchedulerService {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             restTemplate.postForEntity(slackWebhookUrl, request, String.class);
         } catch (Exception e) {
-            log.warn("[Threads 슬랙 알림] 발송 실패: {}", e.getMessage());
+            log.warn("[Threads 슬랙 알림] 발송 실패 ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -196,7 +197,7 @@ public class ThreadsSchedulerService {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             restTemplate.postForEntity(slackWebhookUrl, request, String.class);
         } catch (Exception e) {
-            log.warn("[Threads 슬랙 알림] 발송 실패: {}", e.getMessage());
+            log.warn("[Threads 슬랙 알림] 발송 실패 ({})", e.getClass().getSimpleName());
         }
     }
 }

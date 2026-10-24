@@ -13,6 +13,8 @@ import com.kuji.backend.domain.shipping.enums.ShippingStatus;
 import com.kuji.backend.domain.shipping.repository.ShippingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
+import com.kuji.backend.domain.member.enums.RoleType;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -26,6 +28,22 @@ public class ShippingService {
     private final DrawHistoryRepository drawHistoryRepository;
     private final MemberRepository memberRepository;
     private final NotificationService notificationService;
+
+    public void validateAccess(Long shippingId, Long memberId, boolean allowRecipient) {
+        Shipping shipping = shippingRepository.findById(shippingId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배송 정보입니다."));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new AccessDeniedException("회원을 찾을 수 없습니다."));
+        if (member.getRole() == RoleType.ADMIN
+                || (allowRecipient && shipping.getMember().getId().equals(memberId))) {
+            return;
+        }
+        List<DrawHistory> histories = drawHistoryRepository.findAllByShipping(shipping);
+        if (member.getRole() != RoleType.BIZ || histories.isEmpty()
+                || !histories.stream().allMatch(history -> history.getKujiBoard().getMember().getId().equals(memberId))) {
+            throw new AccessDeniedException("해당 배송 정보를 관리할 권한이 없습니다.");
+        }
+    }
 
     /**
      * 배송 신청 처리

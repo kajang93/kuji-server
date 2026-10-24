@@ -84,8 +84,10 @@ public class KujiController {
     public ResponseEntity<Void> uploadImages(
             @PathVariable("id") Long boardId,
             @RequestParam("type") BoardImageType type,
-            @RequestParam("files") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files,
+            Authentication authentication) {
         
+        kujiBoardService.validateManageAccess(boardId, (Long) authentication.getPrincipal());
         kujiBoardService.uploadImages(boardId, type, files);
         return ResponseEntity.ok().build();
     }
@@ -96,8 +98,10 @@ public class KujiController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<Void> updateBoardStatus(
             @PathVariable("id") Long boardId,
-            @RequestParam("status") com.kuji.backend.domain.kuji.enums.BoardStatus status) {
+            @RequestParam("status") com.kuji.backend.domain.kuji.enums.BoardStatus status,
+            Authentication authentication) {
         
+        kujiBoardService.validateManageAccess(boardId, (Long) authentication.getPrincipal());
         kujiBoardService.updateBoardStatus(boardId, status);
         return ResponseEntity.ok().build();
     }
@@ -108,8 +112,10 @@ public class KujiController {
     @PatchMapping("/{id}/reward-rate")
     public ResponseEntity<Void> updateBoardRewardRate(
             @PathVariable("id") Long boardId,
-            @RequestParam("rewardRate") Integer rewardRate) {
+            @RequestParam("rewardRate") Integer rewardRate,
+            Authentication authentication) {
         
+        kujiBoardService.validateManageAccess(boardId, (Long) authentication.getPrincipal());
         kujiBoardService.updateRewardRate(boardId, rewardRate);
         return ResponseEntity.ok().build();
     }
@@ -121,8 +127,10 @@ public class KujiController {
     public ResponseEntity<Void> registerItems(
             @PathVariable("id") Long boardId,
             @RequestPart("items") List<KujiItemCreateRequest> requests,
-            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            Authentication authentication) {
         
+        kujiBoardService.validateManageAccess(boardId, (Long) authentication.getPrincipal());
         kujiItemService.createItems(boardId, requests, files);
         return ResponseEntity.ok().build();
     }
@@ -133,8 +141,10 @@ public class KujiController {
     @PatchMapping("/items/{itemId}")
     public ResponseEntity<Void> updateItem(
             @PathVariable("itemId") Long itemId,
-            @RequestBody KujiItemCreateRequest request) {
+            @RequestBody KujiItemCreateRequest request,
+            Authentication authentication) {
         
+        kujiItemService.validateManageAccess(itemId, (Long) authentication.getPrincipal());
         kujiItemService.updateItem(itemId, request);
         return ResponseEntity.ok().build();
     }
@@ -145,8 +155,10 @@ public class KujiController {
     @PostMapping("/items/{itemId}/images")
     public ResponseEntity<Void> updateItemImage(
             @PathVariable("itemId") Long itemId,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
         
+        kujiItemService.validateManageAccess(itemId, (Long) authentication.getPrincipal());
         kujiItemService.updateItemImage(itemId, file);
         return ResponseEntity.ok().build();
     }
@@ -155,7 +167,8 @@ public class KujiController {
      * 쿠지 상품 삭제
      */
     @DeleteMapping("/items/{itemId}")
-    public ResponseEntity<Void> deleteItem(@PathVariable("itemId") Long itemId) {
+    public ResponseEntity<Void> deleteItem(@PathVariable("itemId") Long itemId, Authentication authentication) {
+        kujiItemService.validateManageAccess(itemId, (Long) authentication.getPrincipal());
         kujiItemService.deleteItem(itemId);
         return ResponseEntity.ok().build();
     }

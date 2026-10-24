@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.kuji.backend.global.infra.ExternalApiHttpClient;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -24,7 +25,7 @@ public class ThreadsContentService {
     @Value("${gemini.model:gemini-1.5-flash}")
     private String geminiModel;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = ExternalApiHttpClient.createRestTemplate();
     private final Random random = new Random();
 
     // AI 실패 시 또는 오프라인 시 사용할 공감형 스레드 템플릿 풀
@@ -56,7 +57,7 @@ public class ThreadsContentService {
                     return aiContent.trim();
                 }
             } catch (Exception e) {
-                log.warn("[Threads AI] Gemini 콘텐츠 생성 실패, 기본 템플릿으로 대체: {}", e.getMessage());
+                log.warn("[Threads AI] Gemini 콘텐츠 생성 실패, 기본 템플릿으로 대체 ({})", e.getClass().getSimpleName());
             }
         }
         return getFallbackPost();

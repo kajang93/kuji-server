@@ -116,9 +116,9 @@ public class MemberController {
      * 로그아웃 (쿠키 삭제 및 DB 리프레시 토큰 삭제)
      */
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal String memberId) {
+    public ResponseEntity<String> logout(@AuthenticationPrincipal Long memberId) {
         if (memberId != null) {
-            memberService.logout(Long.valueOf(memberId));
+            memberService.logout(memberId);
         }
         ResponseCookie deleteCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true).secure(true).sameSite("None").path("/").maxAge(0).build();

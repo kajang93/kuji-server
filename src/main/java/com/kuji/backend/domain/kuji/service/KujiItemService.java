@@ -26,38 +26,12 @@ public class KujiItemService {
     private final KujiItemImageRepository kujiItemImageRepository;
     private final KujiBoardRepository kujiBoardRepository;
     private final S3Service s3Service;
+    private final KujiBoardService kujiBoardService;
 
-    /**
-     * 상품 단건 등록
-     */
-    @Transactional
-    public Long createItem(Long boardId, KujiItemCreateRequest request, List<MultipartFile> images) {
-        KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
-
-        KujiItem kujiItem = KujiItem.builder()
-                .grade(request.getGrade())
-                .name(request.getName())
-                .totalQty(request.getTotalQty())
-                .options(request.getOptions())
-                .kujiBoard(kujiBoard)
-                .build();
-
-        KujiItem savedItem = kujiItemRepository.save(kujiItem);
-
-        if (images != null) {
-            for (int i = 0; i < images.size(); i++) {
-                String imageUrl = s3Service.uploadFile("items", images.get(i));
-                KujiItemImage itemImage = KujiItemImage.builder()
-                        .kujiItem(savedItem)
-                        .imageUrl(imageUrl)
-                        .sequence(i + 1)
-                        .build();
-                kujiItemImageRepository.save(itemImage);
-            }
-        }
-
-        return savedItem.getId();
+    public void validateManageAccess(Long itemId, Long memberId) {
+        KujiItem item = kujiItemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        kujiBoardService.validateManageAccess(item.getKujiBoard().getId(), memberId);
     }
 
     /**

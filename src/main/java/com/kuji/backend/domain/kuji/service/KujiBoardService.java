@@ -16,6 +16,8 @@ import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.global.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
+import com.kuji.backend.domain.member.enums.RoleType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,6 +45,16 @@ public class KujiBoardService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
+        if (member.getRole() != RoleType.BIZ && member.getRole() != RoleType.ADMIN) {
+            throw new AccessDeniedException("판매자만 쿠지 판을 등록할 수 있습니다.");
+        }
+
+        if (request.getStatus() == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE
+                && (member.getBusinessInfo() == null
+                || member.getBusinessInfo().getStatus() != com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED)) {
+            throw new AccessDeniedException("사업자 심사가 승인된 후에만 판매를 시작할 수 있습니다.");
+        }
+
         KujiBoard kujiBoard = KujiBoard.builder()
                 .title(request.getTitle())
                 .pricePerDraw(request.getPricePerDraw())
@@ -52,6 +64,19 @@ public class KujiBoardService {
                 .build();
 
         return kujiBoardRepository.save(kujiBoard).getId();
+    }
+
+    public void validateManageAccess(Long boardId, Long memberId) {
+        KujiBoard board = kujiBoardRepository.findById(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new AccessDeniedException("회원을 찾을 수 없습니다."));
+        if (member.getRole() == RoleType.ADMIN) {
+            return;
+        }
+        if (member.getRole() != RoleType.BIZ || !board.getMember().getId().equals(memberId)) {
+            throw new AccessDeniedException("해당 쿠지 판을 관리할 권한이 없습니다.");
+        }
     }
 
     /**

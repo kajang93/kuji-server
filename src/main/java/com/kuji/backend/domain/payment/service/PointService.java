@@ -87,11 +87,12 @@ public class PointService {
      * - 토스페이먼츠 승인 API를 호출하고, 성공 시 회원의 포인트를 증가시킵니다.
      */
     public ChargeConfirmResponse confirmCharge(Long memberId, ChargeConfirmRequest request) {
-        Member member = memberRepository.findById(memberId)
+        // 포인트 변경은 회원, 결제 세션 순서로 잠가 중복 승인과 잔액 갱신 충돌을 막습니다.
+        Member member = memberRepository.findByIdWithLock(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
 
         // 1. 세션 검증
-        PaymentSession session = paymentSessionRepository.findByOrderId(request.getOrderId())
+        PaymentSession session = paymentSessionRepository.findByOrderIdWithLock(request.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 결제 세션입니다."));
 
         if (!session.getMember().getId().equals(memberId)) {

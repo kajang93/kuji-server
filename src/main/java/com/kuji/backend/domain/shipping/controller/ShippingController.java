@@ -9,6 +9,7 @@ import com.kuji.backend.domain.shipping.service.ShippingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,6 +48,7 @@ public class ShippingController {
     /**
      * 전체 배송 목록 조회 (관리자용)
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/admin")
     public ResponseEntity<List<ShippingResponse>> getAllShippings() {
         List<ShippingResponse> responses = shippingService.getAllShippingList();
@@ -56,6 +58,7 @@ public class ShippingController {
     /**
      * 사업자용 배송 목록 조회 API
      */
+    @PreAuthorize("hasAnyRole('BIZ', 'ADMIN')")
     @GetMapping("/seller")
     public ResponseEntity<List<ShippingResponse>> getSellerShippings(
             @AuthenticationPrincipal Long memberId) {
@@ -67,11 +70,14 @@ public class ShippingController {
     /**
      * 운송장 번호 등록 API (관리자용)
      */
+    @PreAuthorize("hasAnyRole('BIZ', 'ADMIN')")
     @PatchMapping("/{id}/tracking")
     public ResponseEntity<Void> updateTracking(
             @PathVariable Long id,
-            @RequestBody TrackingRequest request) {
+            @RequestBody TrackingRequest request,
+            @AuthenticationPrincipal Long memberId) {
         
+        shippingService.validateAccess(id, memberId, false);
         shippingService.updateTrackingInfo(id, request.courierName(), request.trackingNumber(), request.courierPhone());
         return ResponseEntity.ok().build();
     }
@@ -80,7 +86,8 @@ public class ShippingController {
      * 배송 완료 처리 API
      */
     @PatchMapping("/{id}/complete")
-    public ResponseEntity<Void> completeShipping(@PathVariable Long id) {
+    public ResponseEntity<Void> completeShipping(@PathVariable Long id, @AuthenticationPrincipal Long memberId) {
+        shippingService.validateAccess(id, memberId, true);
         shippingService.completeShipping(id);
         return ResponseEntity.ok().build();
     }
@@ -90,7 +97,8 @@ public class ShippingController {
      * 차후 SweetTracker API 연동 시 실제 데이터가 반환됩니다.
      */
     @GetMapping("/{id}/tracking")
-    public ResponseEntity<TrackingResponse> getTrackingInfo(@PathVariable Long id) {
+    public ResponseEntity<TrackingResponse> getTrackingInfo(@PathVariable Long id, @AuthenticationPrincipal Long memberId) {
+        shippingService.validateAccess(id, memberId, true);
         TrackingResponse response = deliveryTrackingService.getTrackingInfo(id);
         return ResponseEntity.ok(response);
     }

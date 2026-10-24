@@ -10,6 +10,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
+import com.kuji.backend.global.infra.ExternalApiHttpClient;
 
 import java.util.Map;
 
@@ -25,15 +26,17 @@ public class ThreadsApiClient {
     @Value("${threads.user-id:me}")
     private String configuredUserId;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = ExternalApiHttpClient.createRestTemplate();
 
     /**
      * 현재 연동된 Threads 계정 정보 조회 (id, username, name)
      */
     public ThreadsAccountInfo getMe() {
-        String url = String.format("%s/me?fields=id,username,name&access_token=%s", BASE_URL, accessToken);
+        String url = BASE_URL + "/me?fields=id,username,name";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
             Map<String, Object> body = response.getBody();
             if (body != null) {
                 return ThreadsAccountInfo.builder()
@@ -43,8 +46,8 @@ public class ThreadsApiClient {
                         .build();
             }
         } catch (Exception e) {
-            log.error("[Threads API] 계정 정보 조회 실패: {}", e.getMessage());
-            throw new RuntimeException("Threads 계정 정보 조회 실패: " + e.getMessage(), e);
+            log.error("[Threads API] 계정 정보 조회 실패 ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 계정 정보를 확인하지 못했습니다. 토큰과 연결 상태를 확인해주세요.");
         }
         return null;
     }
@@ -90,11 +93,11 @@ public class ThreadsApiClient {
             }
             throw new RuntimeException("Threads 컨테이너 생성 응답에 id가 없습니다: " + body);
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("[Threads API] 컨테이너 생성 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Threads 컨테이너 생성 오류: " + e.getResponseBodyAsString(), e);
+            log.error("[Threads API] 컨테이너 생성 실패: {}", e.getStatusCode());
+            throw new IllegalStateException("Threads 컨테이너 생성 요청이 거절되었습니다. HTTP " + e.getStatusCode().value());
         } catch (Exception e) {
-            log.error("[Threads API] 컨테이너 생성 예외: {}", e.getMessage());
-            throw new RuntimeException("Threads 컨테이너 생성 예외: " + e.getMessage(), e);
+            log.error("[Threads API] 컨테이너 생성 예외 ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 컨테이너 생성 요청을 처리하지 못했습니다.");
         }
     }
 
@@ -131,11 +134,11 @@ public class ThreadsApiClient {
             }
             throw new RuntimeException("Threads 댓글 컨테이너 생성 응답에 id가 없습니다: " + body);
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("[Threads API] 댓글 컨테이너 생성 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Threads 댓글 컨테이너 생성 오류: " + e.getResponseBodyAsString(), e);
+            log.error("[Threads API] 댓글 컨테이너 생성 실패: {}", e.getStatusCode());
+            throw new IllegalStateException("Threads 댓글 컨테이너 생성 요청이 거절되었습니다. HTTP " + e.getStatusCode().value());
         } catch (Exception e) {
-            log.error("[Threads API] 댓글 컨테이너 생성 예외: {}", e.getMessage());
-            throw new RuntimeException("Threads 댓글 컨테이너 생성 예외: " + e.getMessage(), e);
+            log.error("[Threads API] 댓글 컨테이너 생성 예외 ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 댓글 컨테이너 생성 요청을 처리하지 못했습니다.");
         }
     }
 
@@ -169,11 +172,11 @@ public class ThreadsApiClient {
             }
             throw new RuntimeException("Threads 게시 응답에 id가 없습니다: " + body);
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("[Threads API] 게시 실패: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Threads 게시 오류: " + e.getResponseBodyAsString(), e);
+            log.error("[Threads API] 게시 실패: {}", e.getStatusCode());
+            throw new IllegalStateException("Threads 게시 요청이 거절되었습니다. HTTP " + e.getStatusCode().value());
         } catch (Exception e) {
-            log.error("[Threads API] 게시 예외: {}", e.getMessage());
-            throw new RuntimeException("Threads 게시 예외: " + e.getMessage(), e);
+            log.error("[Threads API] 게시 예외 ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 게시 요청을 처리하지 못했습니다.");
         }
     }
 }

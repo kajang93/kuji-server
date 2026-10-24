@@ -34,7 +34,8 @@ public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> 
     // [Seller] 사업자의 쿠지판에서 발생한 배송 대기 등 특정 상태의 내역 건수 조회
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(d) FROM DrawHistory d WHERE d.kujiBoard.member.id = :sellerId AND d.status = :status")
     Long countByKujiBoardMemberIdAndStatus(@org.springframework.data.repository.query.Param("sellerId") Long sellerId, @org.springframework.data.repository.query.Param("status") com.kuji.backend.domain.kuji.enums.DrawStatus status);
-    // [Admin] 특정 시점 이후 발생한 뽑기/결제 성공 건수 집계 (예: 오늘 하루 발생한 매출 건수)
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(d) FROM DrawHistory d WHERE d.createdAt >= :startDate")
-    Long countDrawsCreatedAfter(@org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate);
+    // 운영 리포트의 뽑기 내역은 결제 건수와 구분해 하루 단위로 집계합니다.
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(d) FROM DrawHistory d WHERE d.createdAt >= :startDate AND d.createdAt < :endDate")
+    Long countDrawsCreatedBetween(@org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate,
+                                 @org.springframework.data.repository.query.Param("endDate") java.time.LocalDateTime endDate);
 }

@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import com.kuji.backend.global.infra.ExternalApiHttpClient;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -22,7 +23,7 @@ import java.util.Map;
 public class DeliveryTrackingService {
 
     private final ShippingRepository shippingRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = ExternalApiHttpClient.createRestTemplate();
 
     // Delivery Tracker (tracker.delivery) 무료 오픈소스 API URL
     private static final String DELIVERY_TRACKER_API_URL = "https://apis.tracker.delivery/carriers/{carrier_id}/tracks/{track_id}";

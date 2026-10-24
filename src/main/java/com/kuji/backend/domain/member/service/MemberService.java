@@ -110,6 +110,9 @@ public class MemberService {
      */
     @Transactional
     public Long signUp(SignUpRequest request, SocialType socialType, String socialId) {
+        if (request.role() == com.kuji.backend.domain.member.enums.RoleType.ADMIN) {
+            throw new org.springframework.security.access.AccessDeniedException("관리자 권한으로 가입할 수 없습니다.");
+        }
 
         // 1. 이메일 중복 체크
         if (memberRepository.findByEmail(request.email()).isPresent()) {
@@ -182,7 +185,11 @@ public class MemberService {
     public com.kuji.backend.domain.member.dto.LoginResponse loginByKakao(
             com.kuji.backend.domain.member.dto.KakaoLoginRequest request) {
         // 1. 카카오 서버에서 사용자 정보 가져오기
-        var userInfo = kakaoClient.getKakaoUserInfo(request.getKakaoAccessToken());
+        String kakaoAccessToken = request.getKakaoAccessToken();
+        if (request.getAuthorizationCode() != null && !request.getAuthorizationCode().isBlank()) {
+            kakaoAccessToken = kakaoClient.exchangeAuthorizationCode(request.getAuthorizationCode(), request.getRedirectUri());
+        }
+        var userInfo = kakaoClient.getKakaoUserInfo(kakaoAccessToken);
         String socialId = String.valueOf(userInfo.getId());
         String email = userInfo.getEmail();
         String nickname = userInfo.getNickname();

@@ -63,11 +63,9 @@ public class AdminAiController {
      */
     @GetMapping("/trigger-report")
     public ResponseEntity<Map<String, String>> triggerReportNow() {
-        try {
-            aiReportService.generateAndSendDailyReport();
-            return ResponseEntity.ok(Map.of("message", "슬랙 리포트 수동 발송 성공! 슬랙을 확인해보세요."));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "발송 실패: " + e.getMessage()));
+        if (aiReportService.generateAndSendDailyReport()) {
+            return ResponseEntity.ok(Map.of("message", "슬랙 리포트를 발송했습니다."));
         }
+        return ResponseEntity.internalServerError().body(Map.of("error", "리포트를 발송하지 못했습니다. 서버의 리포트 설정과 오류 유형을 확인해 주세요."));
     }
 }

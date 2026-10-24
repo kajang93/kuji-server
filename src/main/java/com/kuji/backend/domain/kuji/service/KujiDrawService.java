@@ -71,6 +71,28 @@ public class KujiDrawService {
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
+    private void validateSaleAvailable(KujiBoard board) {
+        if (board.getStatus() != BoardStatus.ACTIVE) {
+            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
+        }
+        Member seller = board.getMember();
+        if (seller.getBusinessInfo() == null
+                || seller.getBusinessInfo().getStatus() != com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED) {
+            throw new IllegalStateException("사업자 심사가 승인되지 않은 판매자의 상품입니다.");
+        }
+    }
+
+    private int calculateRequiredAmount(KujiBoard board, int count) {
+        if (count < 1 || board.getPricePerDraw() == null || board.getPricePerDraw() < 1) {
+            throw new IllegalArgumentException("뽑기 수량과 상품 가격은 양수여야 합니다.");
+        }
+        try {
+            return Math.toIntExact(Math.multiplyExact(board.getPricePerDraw(), (long) count));
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("결제 가능한 금액 범위를 초과했습니다.");
+        }
+    }
+
     /**
      * PG 결제 준비 (세션 생성)
      */
@@ -89,7 +111,11 @@ public class KujiDrawService {
             throw new IllegalArgumentException("포인트가 부족합니다.");
         }
         
-        int totalOriginalAmount = (int) (board.getPricePerDraw() * count);
+        validateSaleAvailable(board);
+        int totalOriginalAmount = calculateRequiredAmount(board, count);
+        if (pointsUsed < 0) {
+            throw new IllegalArgumentException("사용 포인트는 음수일 수 없습니다.");
+        }
         if (pointsUsed > totalOriginalAmount) {
             pointsUsed = totalOriginalAmount;
         }
@@ -125,21 +151,31 @@ public class KujiDrawService {
     public KujiDrawResponse draw(Long memberId, Long boardId, KujiDrawRequest request) {
         int count = (request.getCount() != null) ? request.getCount() : 1;
 
-        // 1. 쿠지 판 사전 검증 (락 없이 조회)
-        //    토스 승인 같은 외부 API 호출을 비관적 락 안에서 수행하면
-        //    PG 지연 시 해당 판의 모든 뽑기가 락 대기로 블록되므로, 결제는 락 획득 전에 처리한다.
-        KujiBoard boardPreview = kujiBoardRepository.findById(boardId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
-
-        if (boardPreview.getStatus() != BoardStatus.ACTIVE) {
-            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
-        }
-
-        Member member = memberRepository.findById(memberId)
+        // 충전과 같은 순서로 회원을 먼저 잠가 포인트 차감과 적립을 직렬화합니다.
+        Member member = memberRepository.findByIdWithLock(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
-        // 1-1. 결제 처리 분기
-        int totalRequiredAmount = (int) (boardPreview.getPricePerDraw() * count);
+        // 회원, 결제 세션, 쿠지 판 순서로 잠가 중복 승인과 재고 경합을 막습니다.
+        PaymentSession session = null;
+        if (request.getPaymentType() == PaymentType.PG) {
+            if (request.getOrderId() == null) {
+                throw new IllegalArgumentException("주문 번호(orderId)가 필요합니다.");
+            }
+            session = paymentSessionRepository.findByOrderIdWithLock(request.getOrderId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 결제 세션입니다."));
+        }
+
+        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
+                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        validateSaleAvailable(board);
+        int totalRequiredAmount = calculateRequiredAmount(board, count);
+        List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+        long availableCount = allItems.stream().mapToLong(item -> Math.max(0, item.getRemainQty())).sum();
+        if (availableCount < count) {
+            throw new IllegalStateException("요청한 수량보다 남은 상품이 부족합니다.");
+        }
+
+        // 결제 승인은 잠근 재고가 요청 수량을 충족하는 경우에만 진행합니다.
         Payment savedPayment = null;
         int usedPoints = 0;
 
@@ -148,14 +184,13 @@ public class KujiDrawService {
             usedPoints = totalRequiredAmount;
             member.deductPoint(totalRequiredAmount); 
         } else if (request.getPaymentType() == PaymentType.PG) {
-            // PG 결제: 넘어온 orderId로 결제 세션 검증
-            if (request.getOrderId() == null) {
-                throw new IllegalArgumentException("주문 번호(orderId)가 필요합니다.");
+            // PG 결제: 잠근 결제 세션이 현재 구매 요청과 일치하는지 확인합니다.
+            if (!session.getMember().getId().equals(memberId)
+                    || session.getSessionType() != SessionType.KUJI_DRAW
+                    || session.getBoard() == null || !session.getBoard().getId().equals(boardId)
+                    || !Integer.valueOf(count).equals(session.getCount())) {
+                throw new IllegalArgumentException("결제 세션의 구매자, 쿠지 판 또는 수량이 요청과 일치하지 않습니다.");
             }
-            
-            PaymentSession session = paymentSessionRepository.findByOrderId(request.getOrderId())
-                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 결제 세션입니다."));
-                    
             if (session.getStatus() != SessionStatus.PENDING) {
                 throw new IllegalArgumentException("이미 처리되었거나 유효하지 않은 결제 세션입니다.");
             }
@@ -169,6 +204,20 @@ public class KujiDrawService {
                 throw new IllegalArgumentException("결제 요청 금액이 세션과 일치하지 않습니다.");
             }
             
+            try {
+                usedPoints = session.getMetadata() == null ? 0
+                        : objectMapper.readTree(session.getMetadata()).path("pointsUsed").asInt(0);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new IllegalArgumentException("결제 세션의 포인트 정보를 확인하지 못했습니다.");
+            }
+            if (usedPoints < 0 || usedPoints > totalRequiredAmount
+                    || session.getAmount() != totalRequiredAmount - usedPoints) {
+                throw new IllegalArgumentException("결제 세션의 총 결제 금액이 일치하지 않습니다.");
+            }
+            if (usedPoints > member.getPoint()) {
+                throw new IllegalArgumentException("포인트가 부족합니다.");
+            }
+
             // 토스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
             try {
                 tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
@@ -180,16 +229,8 @@ public class KujiDrawService {
             // 승인 성공: 세션 상태 변경
             session.updateStatus(SessionStatus.COMPLETED);
             
-            // metadata에서 pointsUsed 파싱 및 차감
-            if (session.getMetadata() != null) {
-                try {
-                    usedPoints = objectMapper.readTree(session.getMetadata()).path("pointsUsed").asInt(0);
-                    if (usedPoints > 0) {
-                        member.deductPoint(usedPoints);
-                    }
-                } catch (Exception e) {
-                    businessLogger.warn("[POINT_DEDUCTION_FAIL] Failed to parse pointsUsed from metadata: {}", session.getMetadata());
-                }
+            if (usedPoints > 0) {
+                member.deductPoint(usedPoints);
             }
             
             // 결제 성공 시 결제(영수증) 내역 저장
@@ -209,20 +250,10 @@ public class KujiDrawService {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
         }
 
-        // 2. 추첨 구간에만 비관적 락 적용 (결제 등 외부 I/O는 위에서 이미 완료)
-        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
-
-        if (board.getStatus() != BoardStatus.ACTIVE) {
-            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
-        }
-
+        // 2. 승인 전 검증한 쿠지 판과 상품 목록으로 추첨합니다.
         List<KujiItem> winningItems = new ArrayList<>();
         List<DrawHistory> drawHistories = new ArrayList<>();
         Random random = new Random();
-
-        // 2-1. 전체 상품 목록 한 번만 조회
-        List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
 
         // 3. 요청한 갯수만큼 반복 추첨
         for (int i = 0; i < count; i++) {

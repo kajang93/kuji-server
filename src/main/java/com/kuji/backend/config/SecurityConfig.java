@@ -59,11 +59,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/members/refresh", "/api/members/check-email", "/api/members/find-id",
                                 "/api/members/send-sms", "/api/members/verify-sms", "/api/members/reset-password")
                         .permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**",
-                                "/api/posts", "/api/posts/**", "/api/ops/**")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji/seller")
+                        .hasAnyRole("BIZ", "ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji/draw-history/me")
+                        .authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/ops/incident/*/approve", "/api/ops/incident/*/reject")
                         .permitAll()
-                        .requestMatchers("/api/marketing/threads/**").hasRole("ADMIN")
-                        .requestMatchers("/api/marketing/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**",
+                                "/api/posts", "/api/posts/**")
+                        .permitAll()
+                        .requestMatchers("/api/marketing/**", "/api/ops/**").hasRole("ADMIN")
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // 💡 관리자 전용 경로 추가!
                         .anyRequest().authenticated())
