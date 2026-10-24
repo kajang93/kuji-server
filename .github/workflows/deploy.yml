@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -20,14 +21,36 @@ jobs:
           distribution: 'temurin'
 
       - name: Inject Secret Files
+        env:
+          APPLICATION_SECRET_YML: ${{ secrets.APPLICATION_SECRET_YML }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ENABLED: ${{ secrets.THREADS_ENABLED }}
         run: |
-          cat << 'EOF' > src/main/resources/application-secret.yml
-          ${{ secrets.APPLICATION_SECRET_YML }}
-          EOF
-          cat << 'EOF' > src/main/resources/firebase-service-account.json
-          ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          EOF
-          
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+
+          resources = Path("src/main/resources")
+          resources.joinpath("application-secret.yml").write_text(os.environ["APPLICATION_SECRET_YML"], encoding="utf-8")
+          resources.joinpath("firebase-service-account.json").write_text(os.environ["FIREBASE_SERVICE_ACCOUNT_JSON"], encoding="utf-8")
+
+          threads = {}
+          for env_key, property_key in (("THREADS_ACCESS_TOKEN", "access-token"), ("THREADS_USER_ID", "user-id")):
+              value = os.environ.get(env_key, "").strip()
+              if value:
+                  threads[property_key] = value
+          enabled = os.environ.get("THREADS_ENABLED", "").strip().lower()
+          if enabled:
+              if enabled not in ("true", "false"):
+                  raise SystemExit("THREADS_ENABLED must be true or false")
+              threads["enabled"] = enabled == "true"
+          if threads:
+              resources.joinpath("application-threads-secret.yml").write_text(json.dumps({"threads": threads}), encoding="utf-8")
+          PYTHON
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         

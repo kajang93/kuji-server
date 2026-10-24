@@ -29,7 +29,9 @@ spring:
         static: eu-north-1
 
   config:
-    import: optional:classpath:application-secret.yml
+    import:
+      - optional:classpath:application-secret.yml
+      - optional:classpath:application-threads-secret.yml
 server:
   port: 8080
   address: 0.0.0.0

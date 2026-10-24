@@ -41,8 +41,12 @@ public class ThreadsSchedulerService {
      */
     @Scheduled(cron = "0 0 9 * * *", zone = "Asia/Seoul")
     public void scheduleDailyThreadsPost() {
-        if (!threadsEnabled || "mock".equalsIgnoreCase(accessToken) || accessToken.isBlank()) {
-            log.warn("[Threads 스케줄러] Threads 기능이 비활성화되어 있거나 토큰이 설정되지 않아 포스팅을 건너뜁니다.");
+        if (!threadsEnabled) {
+            log.info("[Threads 스케줄러] threads.enabled=false 설정으로 포스팅을 건너뜁니다.");
+            return;
+        }
+        if ("mock".equalsIgnoreCase(accessToken) || accessToken.isBlank()) {
+            log.error("[Threads 스케줄러] 토큰이 없습니다. GitHub의 THREADS_ACCESS_TOKEN 또는 APPLICATION_SECRET_YML 내 threads.access-token을 설정하고 서버를 재배포하세요.");
             return;
         }
 

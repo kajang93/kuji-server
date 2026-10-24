@@ -41,6 +41,7 @@ node_modules/
 
 ### Secrets ###
 application-secret.yml
+application-threads-secret.yml
 firebase-service-account.json
 
 ### macOS ###

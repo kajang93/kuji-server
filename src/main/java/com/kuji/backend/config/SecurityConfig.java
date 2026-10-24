@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/kuji", "/api/kuji/**",
                                 "/api/posts", "/api/posts/**", "/api/ops/**")
                         .permitAll()
+                        .requestMatchers("/api/marketing/threads/**").hasRole("ADMIN")
                         .requestMatchers("/api/marketing/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN") // 💡 관리자 전용 경로 추가!
