@@ -32,6 +32,7 @@ spring:
     import:
       - optional:classpath:application-secret.yml
       - optional:classpath:application-threads-secret.yml
+      - optional:classpath:application-integrations-secret.yml
 server:
   port: 8080
   address: 0.0.0.0
@@ -86,8 +87,16 @@ threads:
   access-token: ${THREADS_ACCESS_TOKEN:mock}
   user-id: ${THREADS_USER_ID:28861832050080267}
   enabled: ${THREADS_ENABLED:true}
+  reply-monitor:
+    enabled: ${THREADS_REPLY_MONITOR_ENABLED:false}
+    interval-ms: ${THREADS_REPLY_MONITOR_INTERVAL_MS:300000}
 
 
 kakao:
   rest-api-key: ${KAKAO_REST_API_KEY:}
   client-secret: ${KAKAO_CLIENT_SECRET:}
+
+metricool:
+  api-token: ${METRICOOL_API_TOKEN:}
+  user-id: ${METRICOOL_USER_ID:5400385}
+  blog-id: ${METRICOOL_BLOG_ID:6997151}

@@ -1,6 +1,7 @@
 package com.kuji.backend.domain.threads.client;
 
 import com.kuji.backend.domain.threads.dto.ThreadsAccountInfo;
+import com.kuji.backend.domain.threads.dto.ThreadsMediaPage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -13,6 +14,10 @@ import org.springframework.web.client.RestTemplate;
 import com.kuji.backend.global.infra.ExternalApiHttpClient;
 
 import java.util.Map;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Component
@@ -50,6 +55,45 @@ public class ThreadsApiClient {
             throw new IllegalStateException("Threads 계정 정보를 확인하지 못했습니다. 토큰과 연결 상태를 확인해주세요.");
         }
         return null;
+    }
+
+    public ThreadsMediaPage getRecentPostPage(Instant since, String after) {
+        return getMediaPage("/" + getTargetUserId() + "/threads", "id,username,timestamp", after,
+                since.atZone(ZoneOffset.UTC).toLocalDate().toString());
+    }
+
+    public ThreadsMediaPage getConversationPage(String postId, String after) {
+        if (postId == null || !postId.matches("[0-9]{1,64}")) {
+            throw new IllegalArgumentException("Threads 게시글 식별자가 올바르지 않습니다.");
+        }
+        return getMediaPage("/" + postId + "/conversation",
+                "id,text,username,permalink,timestamp,is_reply_owned_by_me", after, null);
+    }
+
+    private ThreadsMediaPage getMediaPage(String path, String fields, String after, String since) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(BASE_URL + path)
+                .queryParam("fields", fields).queryParam("limit", 100);
+        if (after != null && !after.isBlank()) {
+            builder.queryParam("after", after);
+        }
+        if (since != null) {
+            builder.queryParam("since", since);
+        } else {
+            builder.queryParam("reverse", true);
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        try {
+            ThreadsMediaPage body = restTemplate.exchange(builder.build().encode().toUri(), HttpMethod.GET,
+                    new HttpEntity<>(headers), ThreadsMediaPage.class).getBody();
+            if (body == null) {
+                throw new IllegalStateException("Threads 댓글 조회 응답이 비어 있습니다.");
+            }
+            return body;
+        } catch (RestClientException e) {
+            log.warn("[Threads 댓글 API] 조회 실패. threads_read_replies 권한과 토큰을 확인하세요. ({})", e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 게시글 또는 댓글을 조회하지 못했습니다. threads_read_replies 권한과 토큰을 확인해주세요.");
+        }
     }
 
     /**

@@ -27,6 +27,14 @@ jobs:
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
           THREADS_ENABLED: ${{ secrets.THREADS_ENABLED }}
+          THREADS_REPLY_MONITOR_ENABLED: ${{ secrets.THREADS_REPLY_MONITOR_ENABLED }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          METRICOOL_API_TOKEN: ${{ secrets.METRICOOL_API_TOKEN }}
+          METRICOOL_USER_ID: ${{ secrets.METRICOOL_USER_ID }}
+          METRICOOL_BLOG_ID: ${{ secrets.METRICOOL_BLOG_ID }}
         run: |
           python3 - <<'PYTHON'
           import json
@@ -49,6 +57,27 @@ jobs:
               threads["enabled"] = enabled == "true"
           if threads:
               resources.joinpath("application-threads-secret.yml").write_text(json.dumps({"threads": threads}), encoding="utf-8")
+
+          integrations = {}
+          for env_key, section, property_key in (
+              ("KAKAO_REST_API_KEY", "kakao", "rest-api-key"),
+              ("KAKAO_CLIENT_SECRET", "kakao", "client-secret"),
+              ("TOSS_SECRET_KEY", "toss", "secret-key"),
+              ("SLACK_WEBHOOK_URL", "slack", "webhook-url"),
+              ("METRICOOL_API_TOKEN", "metricool", "api-token"),
+              ("METRICOOL_USER_ID", "metricool", "user-id"),
+              ("METRICOOL_BLOG_ID", "metricool", "blog-id"),
+          ):
+              value = os.environ.get(env_key, "").strip()
+              if value:
+                  integrations.setdefault(section, {})[property_key] = value
+          monitor_enabled = os.environ.get("THREADS_REPLY_MONITOR_ENABLED", "").strip().lower()
+          if monitor_enabled:
+              if monitor_enabled not in ("true", "false"):
+                  raise SystemExit("THREADS_REPLY_MONITOR_ENABLED must be true or false")
+              integrations.setdefault("threads", {})["reply-monitor"] = {"enabled": monitor_enabled == "true"}
+          if integrations:
+              resources.joinpath("application-integrations-secret.yml").write_text(json.dumps(integrations), encoding="utf-8")
           PYTHON
 
       - name: Grant execute permission for gradlew

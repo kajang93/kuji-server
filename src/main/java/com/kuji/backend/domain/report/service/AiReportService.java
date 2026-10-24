@@ -29,6 +29,7 @@ public class AiReportService {
 
     private final MemberRepository memberRepository;
     private final DrawHistoryRepository drawHistoryRepository;
+    private final MetricoolWebsiteClient metricoolWebsiteClient;
 
     @Value("${gemini.api-key}")
     private String geminiKey;
@@ -56,12 +57,17 @@ public class AiReportService {
             long newUsers = memberRepository.countMembersCreatedBetween(start, end);
             long newDraws = drawHistoryRepository.countDrawsCreatedBetween(start, end);
 
+            String websiteStats = metricoolWebsiteClient.fetchDailyStats(reportDate)
+                    .map(stats -> String.format("• 방문자. %d명\n• 페이지뷰. %d회", stats.visitors(), stats.pageViews()))
+                    .orElse("• 방문자·페이지뷰. 미집계 (Metricool API 설정 또는 조회 확인 필요).");
+
             String rawStats = String.format(
                     "집계 기간. %s 00:00 이상 ~ %s 00:00 미만 (한국 시간, Asia/Seoul)\n" +
                     "• 신규 가입. %d명\n" +
                     "• 뽑기 내역. %d건\n" +
-                    "• 방문자·페이지뷰, 결제 성공·실패, 서버 다운타임. 미집계.",
-                    reportDate, reportDate.plusDays(1), newUsers, newDraws);
+                    "%s\n" +
+                    "• 결제 성공·실패, 서버 다운타임. 미집계.",
+                    reportDate, reportDate.plusDays(1), newUsers, newDraws, websiteStats);
 
             String aiSummary = askGemini(rawStats);
             sendToSlack(rawStats + "\n\n*운영 메모*\n" + aiSummary);
