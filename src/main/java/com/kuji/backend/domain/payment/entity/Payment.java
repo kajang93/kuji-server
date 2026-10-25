@@ -25,7 +25,7 @@ public class Payment {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 200)
     private String pguid;
 
     @Column(name = "merchant_uid", nullable = false, length = 100)

@@ -26,7 +26,7 @@ import com.kuji.backend.domain.payment.enums.SessionStatus;
 import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
-import com.kuji.backend.global.infra.toss.TossPaymentClient;
+import com.kuji.backend.domain.payment.service.PaymentRecoveryService;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.notification.entity.NotificationType;
@@ -65,7 +65,7 @@ public class KujiDrawService {
     private final KujiItemService kujiItemService;
     private final NotificationService notificationService;
     private final WishlistNotificationService wishlistNotificationService;
-    private final TossPaymentClient tossPaymentClient;
+    private final PaymentRecoveryService paymentRecoveryService;
     private final PaymentRepository paymentRepository;
     private final PaymentSessionRepository paymentSessionRepository;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
@@ -150,6 +150,10 @@ public class KujiDrawService {
     @Transactional
     public KujiDrawResponse draw(Long memberId, Long boardId, KujiDrawRequest request) {
         int count = (request.getCount() != null) ? request.getCount() : 1;
+        if (request.getPaymentType() == PaymentType.PG) {
+            paymentRecoveryService.registerAttempt(memberId, request.getPaymentKey(), request.getOrderId(),
+                    request.getAmount(), SessionType.KUJI_DRAW, boardId, count);
+        }
 
         // 충전과 같은 순서로 회원을 먼저 잠가 포인트 차감과 적립을 직렬화합니다.
         Member member = memberRepository.findByIdWithLock(memberId)
@@ -163,6 +167,20 @@ public class KujiDrawService {
             }
             session = paymentSessionRepository.findByOrderIdWithLock(request.getOrderId())
                     .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 결제 세션입니다."));
+            if (!session.getMember().getId().equals(memberId) || session.getSessionType() != SessionType.KUJI_DRAW
+                    || session.getBoard() == null || !session.getBoard().getId().equals(boardId)
+                    || !Integer.valueOf(count).equals(session.getCount()) || !session.getAmount().equals(request.getAmount())) {
+                throw new IllegalArgumentException("결제 요청이 준비된 주문과 일치하지 않습니다.");
+            }
+            // 완료 주문은 판매 종료나 재고 소진과 무관하게 원래 추첨 결과를 재사용합니다.
+            com.fasterxml.jackson.databind.JsonNode completed = paymentRecoveryService.completedResult(session,
+                    request.getPaymentKey(), request.getAmount());
+            if (completed != null) {
+                List<KujiItemResponse> results = objectMapper.convertValue(completed.path("results"),
+                        new com.fasterxml.jackson.core.type.TypeReference<List<KujiItemResponse>>() {});
+                return KujiDrawResponse.builder().results(results)
+                        .totalRemaining(completed.path("totalRemaining").intValue()).build();
+            }
         }
 
         KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
@@ -220,14 +238,11 @@ public class KujiDrawService {
 
             // 토스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
             try {
-                tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+                paymentRecoveryService.confirm(session, request.getPaymentKey(), request.getAmount());
             } catch (Exception e) {
                 businessLogger.error("[PAYMENT_FAIL] type=KUJI_DRAW, memberId={}, orderId={}, reason=\"{}\"", memberId, request.getOrderId(), e.getMessage());
                 throw e;
             }
-            
-            // 승인 성공: 세션 상태 변경
-            session.updateStatus(SessionStatus.COMPLETED);
             
             if (usedPoints > 0) {
                 member.deductPoint(usedPoints);
@@ -244,8 +259,8 @@ public class KujiDrawService {
                     .paidAt(OffsetDateTime.now())
                     .build();
             savedPayment = paymentRepository.save(payment);
-            businessLogger.info("[PAYMENT_SUCCESS] type=KUJI_DRAW, memberId={}, orderId={}, paymentKey={}, amount={}",
-                    memberId, request.getOrderId(), request.getPaymentKey(), request.getAmount());
+            businessLogger.info("[PAYMENT_SUCCESS] type=KUJI_DRAW, memberId={}, orderId={}, amount={}",
+                    memberId, request.getOrderId(), request.getAmount());
         } else {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
         }
@@ -302,7 +317,12 @@ public class KujiDrawService {
                                 .itemName(item.getName())
                                 .createdAt(LocalDateTime.now())
                                 .build();
-                        messagingTemplate.convertAndSend("/topic/draw-ticker", tickerDto);
+                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                            @Override public void afterCommit() {
+                                try { messagingTemplate.convertAndSend("/topic/draw-ticker", tickerDto); }
+                                catch (RuntimeException e) { businessLogger.warn("당첨 티커 전송 실패. boardId={}", boardId); }
+                            }
+                        });
                     }
 
                     break;
@@ -371,14 +391,12 @@ public class KujiDrawService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    notificationService.sendNotification(
-                            member,
-                            "쿠지 당첨을 축하합니다!",
-                            winBody,
-                            NotificationType.SYSTEM,
-                            "WINNING",
-                            boardId.toString()
-                    );
+                    try {
+                        notificationService.sendNotification(member, "쿠지 당첨을 축하합니다!", winBody,
+                                NotificationType.SYSTEM, "WINNING", boardId.toString());
+                    } catch (RuntimeException e) {
+                        businessLogger.warn("당첨 알림 전송 실패. boardId={}", boardId);
+                    }
                 }
             });
         }
@@ -389,10 +407,12 @@ public class KujiDrawService {
             wishlistNotificationService.notifyClosingSoon(board, finalTotalRemain);
         }
 
-        return KujiDrawResponse.builder()
+        KujiDrawResponse response = KujiDrawResponse.builder()
                 .results(resultDtos)
                 .totalRemaining(finalTotalRemain)
                 .build();
+        if (session != null) paymentRecoveryService.complete(session, response);
+        return response;
     }
 
     /**

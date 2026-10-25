@@ -17,7 +17,6 @@ import com.kuji.backend.domain.payment.enums.SessionStatus;
 import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
-import com.kuji.backend.global.infra.toss.TossPaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,7 +44,7 @@ public class PointService {
     private final PointHistoryRepository pointHistoryRepository;
     private final PaymentSessionRepository paymentSessionRepository;
     private final PaymentRepository paymentRepository;
-    private final TossPaymentClient tossPaymentClient;
+    private final PaymentRecoveryService paymentRecoveryService;
 
     /**
      * 포인트 충전 준비 (결제 세션 생성)
@@ -87,6 +86,9 @@ public class PointService {
      * - 토스페이먼츠 승인 API를 호출하고, 성공 시 회원의 포인트를 증가시킵니다.
      */
     public ChargeConfirmResponse confirmCharge(Long memberId, ChargeConfirmRequest request) {
+        // 승인 의도는 업무 트랜잭션이 잠금을 잡기 전에 독립적으로 커밋합니다.
+        paymentRecoveryService.registerAttempt(memberId, request.getPaymentKey(), request.getOrderId(),
+                request.getAmount(), SessionType.POINT_CHARGE, null, null);
         // 포인트 변경은 회원, 결제 세션 순서로 잠가 중복 승인과 잔액 갱신 충돌을 막습니다.
         Member member = memberRepository.findByIdWithLock(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
@@ -97,6 +99,13 @@ public class PointService {
 
         if (!session.getMember().getId().equals(memberId)) {
             throw new IllegalArgumentException("결제 세션의 소유자가 아닙니다.");
+        }
+
+        com.fasterxml.jackson.databind.JsonNode completed = paymentRecoveryService.completedResult(session,
+                request.getPaymentKey(), request.getAmount());
+        if (completed != null) {
+            return new ChargeConfirmResponse(completed.path("pointsCharged").intValue(),
+                    completed.path("bonusPoints").intValue(), completed.path("totalPoints").intValue());
         }
 
         if (session.getStatus() != SessionStatus.PENDING) {
@@ -118,14 +127,11 @@ public class PointService {
 
         // 2. 토스페이먼츠 승인 요청
         try {
-            tossPaymentClient.confirmPayment(request.getPaymentKey(), request.getOrderId(), request.getAmount());
+            paymentRecoveryService.confirm(session, request.getPaymentKey(), request.getAmount());
         } catch (Exception e) {
             businessLogger.error("[PAYMENT_FAIL] type=POINT_CHARGE, memberId={}, orderId={}, reason=\"{}\"", memberId, request.getOrderId(), e.getMessage());
             throw e; // 재발생시켜서 글로벌 에러 헨들러로 넘김
         }
-
-        // 3. 세션 상태 완료 처리
-        session.updateStatus(SessionStatus.COMPLETED);
 
         // 4. 결제 영수증 저장
         Payment payment = Payment.builder()
@@ -169,10 +175,12 @@ public class PointService {
             businessLogger.info("[POINT_REWARD] type=CHARGE_BONUS, memberId={}, bonusPoints={}", memberId, bonusPoints);
         }
 
-        businessLogger.info("[PAYMENT_SUCCESS] type=POINT_CHARGE, memberId={}, orderId={}, paymentKey={}, amount={}, bonus={}, newBalance={}",
-                memberId, request.getOrderId(), request.getPaymentKey(), request.getAmount(), bonusPoints, member.getPoint());
+        businessLogger.info("[PAYMENT_SUCCESS] type=POINT_CHARGE, memberId={}, orderId={}, amount={}, bonus={}, newBalance={}",
+                memberId, request.getOrderId(), request.getAmount(), bonusPoints, member.getPoint());
 
-        return new ChargeConfirmResponse(request.getAmount(), bonusPoints, member.getPoint());
+        ChargeConfirmResponse response = new ChargeConfirmResponse(request.getAmount(), bonusPoints, member.getPoint());
+        paymentRecoveryService.complete(session, response);
+        return response;
     }
 
     /**
