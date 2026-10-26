@@ -48,6 +48,10 @@ public class KujiBoard extends BaseTimeEntity {
         this.rewardRate = (rewardRate != null) ? rewardRate : 0;
     }
 
+    public void updateTitle(String title) {
+        this.title = title;
+    }
+
     public void updateStatus(BoardStatus status) {
         this.status = status;
     }

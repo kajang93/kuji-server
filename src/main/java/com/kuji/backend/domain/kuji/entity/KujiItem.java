@@ -84,6 +84,9 @@ public class KujiItem {
     }
 
     public void validateModifiable() {
+        if (this.remainQty != null && this.totalQty != null && !this.remainQty.equals(this.totalQty)) {
+            throw new IllegalStateException("판매 이력이 있는 상품의 구성은 수정하거나 삭제할 수 없습니다.");
+        }
         if (this.kujiBoard.getStatus() == BoardStatus.ACTIVE) {
             throw new IllegalStateException("판매 중인 쿠지 판의 상품은 수정하거나 삭제할 수 없습니다.");
         }

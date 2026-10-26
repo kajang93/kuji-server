@@ -5,7 +5,6 @@ import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
 import com.kuji.backend.domain.kuji.entity.KujiBoard;
 import com.kuji.backend.domain.kuji.entity.KujiItem;
 import com.kuji.backend.domain.kuji.entity.KujiItemImage;
-import com.kuji.backend.domain.kuji.repository.KujiBoardRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemImageRepository;
 import com.kuji.backend.domain.kuji.repository.KujiItemRepository;
 import com.kuji.backend.global.service.S3Service;
@@ -22,9 +21,10 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class KujiItemService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final KujiItemRepository kujiItemRepository;
     private final KujiItemImageRepository kujiItemImageRepository;
-    private final KujiBoardRepository kujiBoardRepository;
     private final S3Service s3Service;
     private final KujiBoardService kujiBoardService;
 
@@ -39,14 +39,16 @@ public class KujiItemService {
      */
     @Transactional
     public void createItems(Long boardId, List<KujiItemCreateRequest> requests, List<MultipartFile> images) {
-        KujiBoard kujiBoard = kujiBoardRepository.findById(boardId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+        KujiBoard kujiBoard = kujiBoardService.lockEditableBoard(boardId);
+        if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("등록할 상품이 없습니다.");
+        if (images != null && images.size() != requests.size()) throw new IllegalArgumentException("상품과 이미지의 순서를 확인해 주세요.");
+        requests.forEach(request -> validateItem(request.getGrade(), request.getName(), request.getTotalQty()));
 
         for (int i = 0; i < requests.size(); i++) {
             KujiItemCreateRequest request = requests.get(i);
             KujiItem kujiItem = KujiItem.builder()
-                    .grade(request.getGrade())
-                    .name(request.getName())
+                    .grade(request.getGrade().trim())
+                    .name(request.getName().trim())
                     .totalQty(request.getTotalQty())
                     .options(request.getOptions())
                     .kujiBoard(kujiBoard)
@@ -77,12 +79,15 @@ public class KujiItemService {
         KujiItem kujiItem = kujiItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         
+        kujiBoardService.lockEditableBoard(kujiItem.getKujiBoard().getId());
+        entityManager.refresh(kujiItem);
         String newGrade = request.getGrade() != null ? request.getGrade() : kujiItem.getGrade();
         String newName = request.getName() != null ? request.getName() : kujiItem.getName();
         Integer newQty = request.getTotalQty() != null ? request.getTotalQty() : kujiItem.getTotalQty();
         String newOptions = request.getOptions() != null ? request.getOptions() : kujiItem.getOptions();
 
-        kujiItem.update(newGrade, newName, newQty, newOptions);
+        validateItem(newGrade, newName, newQty);
+        kujiItem.update(newGrade.trim(), newName.trim(), newQty, newOptions);
     }
 
     /**
@@ -93,12 +98,14 @@ public class KujiItemService {
         KujiItem kujiItem = kujiItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         
+        kujiBoardService.lockEditableBoard(kujiItem.getKujiBoard().getId());
+        entityManager.refresh(kujiItem);
         kujiItem.validateModifiable();
 
         List<KujiItemImage> images = kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(itemId);
         for (KujiItemImage img : images) {
             if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
-                s3Service.deleteFile(img.getImageUrl());
+                deleteImageAfterCommit(img.getImageUrl());
             }
         }
         kujiItemImageRepository.deleteAll(images);
@@ -114,12 +121,15 @@ public class KujiItemService {
         KujiItem kujiItem = kujiItemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         
+        kujiBoardService.lockEditableBoard(kujiItem.getKujiBoard().getId());
+        entityManager.refresh(kujiItem);
+        kujiItem.validateModifiable();
         if (file != null && !file.isEmpty() && file.getSize() > 0) {
             // Delete old images from S3 and DB
             List<KujiItemImage> oldImages = kujiItemImageRepository.findAllByKujiItemIdOrderBySequenceAsc(itemId);
             for (KujiItemImage img : oldImages) {
                 if (img.getImageUrl() != null && img.getImageUrl().startsWith("http")) {
-                    s3Service.deleteFile(img.getImageUrl());
+                    deleteImageAfterCommit(img.getImageUrl());
                 }
             }
             kujiItemImageRepository.deleteAll(oldImages);
@@ -133,6 +143,19 @@ public class KujiItemService {
                     .build();
             kujiItemImageRepository.save(itemImage);
         }
+    }
+
+    private void validateItem(String grade, String name, Integer quantity) {
+        if (grade == null || grade.isBlank() || grade.length() > 10 || name == null || name.isBlank() || name.length() > 100 || quantity == null || quantity < 1 || quantity > 100000) {
+            throw new IllegalArgumentException("등급, 100자 이내의 상품명과 1개 이상 100000개 이하의 수량을 입력해 주세요.");
+        }
+    }
+
+    private void deleteImageAfterCommit(String url) {
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCommit() { s3Service.deleteFile(url); }
+                });
     }
 
     /**

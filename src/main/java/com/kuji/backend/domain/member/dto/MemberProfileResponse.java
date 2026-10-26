@@ -19,7 +19,10 @@ public record MemberProfileResponse(
         String addressDetail,
         Integer points,
         RoleType role,
-        java.time.LocalDateTime createdAt) {
+        java.time.LocalDateTime createdAt,
+        String businessStatus,
+        String businessRejectReason,
+        boolean isActive) {
 
     public static MemberProfileResponse from(Member member) {
         return new MemberProfileResponse(
@@ -33,6 +36,9 @@ public record MemberProfileResponse(
                 member.getAddressDetail(),
                 member.getPoint(),
                 member.getRole(),
-                member.getCreatedAt());
+                member.getCreatedAt(),
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getStatus().name(),
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getRejectReason(),
+                member.getRole() != RoleType.BIZ || (member.getBusinessInfo() != null && member.getBusinessInfo().getStatus() == com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED));
     }
 }

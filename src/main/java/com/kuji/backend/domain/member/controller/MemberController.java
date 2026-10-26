@@ -21,10 +21,16 @@ public class MemberController {
     /**
      * 일반(LOCAL) 회원 가입 API
      */
-    @PostMapping("/signup")
+    @PostMapping(value = "/signup", consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Long> signUp(@RequestBody SignUpRequest request) {
         Long memberId = memberService.signUp(request, SocialType.LOCAL, null);
         return ResponseEntity.ok(memberId);
+    }
+
+    @PostMapping(value = "/signup", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Long> signUpWithLicense(@RequestPart("data") SignUpRequest request,
+            @RequestPart(value = "license", required = false) org.springframework.web.multipart.MultipartFile license) {
+        return ResponseEntity.ok(memberService.signUp(request, SocialType.LOCAL, null, license));
     }
 
     /**

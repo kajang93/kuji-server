@@ -106,6 +106,14 @@ public class KujiController {
         return ResponseEntity.ok().build();
     }
 
+    @PatchMapping("/{id}/title")
+    public ResponseEntity<Void> updateBoardTitle(@PathVariable("id") Long boardId,
+            @RequestBody com.kuji.backend.domain.kuji.dto.KujiBoardTitleRequest request, Authentication authentication) {
+        kujiBoardService.validateManageAccess(boardId, (Long) authentication.getPrincipal());
+        kujiBoardService.updateTitle(boardId, request.title());
+        return ResponseEntity.ok().build();
+    }
+
     /**
      * 쿠지 판 적립 포인트 수정
      */

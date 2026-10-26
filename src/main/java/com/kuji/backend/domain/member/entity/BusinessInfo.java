@@ -75,11 +75,25 @@ public class BusinessInfo extends BaseTimeEntity {
     // 관리자가 승인/반려 처리할 때 사용할 비즈니스 메서드
     public void approve() {
         this.status = BusinessStatus.APPROVED;
+        this.rejectReason = null;
     }
 
     public void reject(String reason) {
         this.status = BusinessStatus.REJECTED;
         this.rejectReason = reason;
+    }
+
+    public void resubmit(String companyName, String businessNumber, String ceoName, String businessAddress, String licenseImageUrl) {
+        if (this.status == BusinessStatus.APPROVED) {
+            throw new IllegalStateException("이미 승인된 사업자 정보는 재신청할 수 없습니다.");
+        }
+        this.companyName = companyName;
+        this.businessNumber = businessNumber;
+        this.ceoName = ceoName;
+        this.businessAddress = businessAddress;
+        this.licenseImageUrl = licenseImageUrl;
+        this.status = BusinessStatus.PENDING;
+        this.rejectReason = null;
     }
 
     public void updateBaseFeeRate(Integer newRate) {

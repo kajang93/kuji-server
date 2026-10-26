@@ -60,3 +60,6 @@ logs/
 uploads/
 checklist.md
 context-notes.md
+
+# 사업자 등록증은 공개 파일 및 버전 관리에서 제외합니다.
+/private/

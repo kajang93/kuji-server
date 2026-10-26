@@ -17,7 +17,7 @@ public record BusinessProfileResponse(
                 info.getBusinessNumber(),
                 info.getCompanyName(),
                 info.getCeoName(),
-                info.getLicenseImageUrl(),
+                info.getLicenseImageUrl() != null && info.getLicenseImageUrl().startsWith("private-license:") ? "/api/business/" + info.getMember().getId() + "/license" : null,
                 info.getStatus().name(),
                 info.getRejectReason(),
                 info.getBusinessAddress(),

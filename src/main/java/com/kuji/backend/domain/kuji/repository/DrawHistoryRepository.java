@@ -10,6 +10,7 @@ import com.kuji.backend.domain.shipping.entity.Shipping;
 
 @Repository
 public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> {
+    boolean existsByKujiBoardId(Long boardId);
     List<DrawHistory> findAllByMemberIdOrderByCreatedAtDesc(Long memberId);
     List<DrawHistory> findAllByShipping(Shipping shipping); // 배송 꾸러미별 상품 조회용 추가
     List<DrawHistory> findTop20ByOrderByCreatedAtDesc(); // 티커용 최신 20건 조회 (기존)

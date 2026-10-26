@@ -15,7 +15,12 @@ public record AdminMemberResponse(
         SocialType socialType,
         LocalDateTime createdAt,
         Integer baseFeeRate,
-        LocalDateTime promotionEndAt
+        LocalDateTime promotionEndAt,
+        String businessStatus,
+        String companyName,
+        String businessNumber,
+        String rejectReason,
+        boolean licenseSubmitted
 ) {
     public static AdminMemberResponse from(Member member) {
         return new AdminMemberResponse(
@@ -28,7 +33,12 @@ public record AdminMemberResponse(
                 member.getCreatedAt(),
                 member.getBusinessInfo() != null ? member.getBusinessInfo().getBaseFeeRate() : null,
                 member.getBusinessInfo() != null && member.getBusinessInfo().getPromotionEndAt() != null 
-                        ? member.getBusinessInfo().getPromotionEndAt().toLocalDateTime() : null
+                        ? member.getBusinessInfo().getPromotionEndAt().toLocalDateTime() : null,
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getStatus().name(),
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getCompanyName(),
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getBusinessNumber(),
+                member.getBusinessInfo() == null ? null : member.getBusinessInfo().getRejectReason(),
+                member.getBusinessInfo() != null && member.getBusinessInfo().getLicenseImageUrl() != null && member.getBusinessInfo().getLicenseImageUrl().startsWith("private-license:")
         );
     }
 }

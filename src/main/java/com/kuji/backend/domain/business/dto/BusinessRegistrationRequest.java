@@ -7,7 +7,8 @@ public record BusinessRegistrationRequest(
         String companyName,
         String businessNumber,
         String representativeName,
-        String licenseImageUrl) {
+        String licenseImageUrl,
+        String businessAddress) {
     // 💡 DTO를 Entity로 바꿔주는 마법! (이때 주인인 Member를 같이 엮어줍니다)
     public BusinessInfo toEntity(Member member) {
         return BusinessInfo.builder()
@@ -16,6 +17,7 @@ public record BusinessRegistrationRequest(
                 .businessNumber(this.businessNumber)
                 .ceoName(this.representativeName)
                 .licenseImageUrl(this.licenseImageUrl)
+                .businessAddress(this.businessAddress)
                 .build();
     }
 }

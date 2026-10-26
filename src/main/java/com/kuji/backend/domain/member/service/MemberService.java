@@ -35,6 +35,7 @@ public class MemberService {
     private final NaverClient naverClient;
     private final GoogleClient googleClient;
     private final BusinessInfoRepository businessInfoRepository;
+    private final com.kuji.backend.domain.business.service.BusinessLicenseStorage businessLicenseStorage;
     private final com.kuji.backend.domain.member.repository.FeePromotionRepository feePromotionRepository;
     private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
@@ -110,8 +111,21 @@ public class MemberService {
      */
     @Transactional
     public Long signUp(SignUpRequest request, SocialType socialType, String socialId) {
+        return signUp(request, socialType, socialId, null);
+    }
+
+    @Transactional
+    public Long signUp(SignUpRequest request, SocialType socialType, String socialId, MultipartFile license) {
         if (request.role() == com.kuji.backend.domain.member.enums.RoleType.ADMIN) {
             throw new org.springframework.security.access.AccessDeniedException("관리자 권한으로 가입할 수 없습니다.");
+        }
+
+        String businessNumber = null;
+        if (request.role() == RoleType.BIZ) {
+            businessNumber = com.kuji.backend.domain.business.service.BusinessInfoService.validateRegistration(
+                    request.companyName(), request.businessNumber(), request.ceoName(), request.businessAddress());
+            if (businessInfoRepository.existsByBusinessNumber(businessNumber)) throw new IllegalArgumentException("이미 등록된 사업자등록번호입니다.");
+            if (license == null || license.isEmpty()) throw new IllegalArgumentException("사업자 등록증 파일을 함께 제출해 주세요.");
         }
 
         // 1. 이메일 중복 체크
@@ -139,11 +153,11 @@ public class MemberService {
         if (request.role() == RoleType.BIZ) {
             BusinessInfo businessInfo = BusinessInfo.builder()
                     .member(savedMember)
-                    .businessNumber(request.businessNumber())
+                    .businessNumber(businessNumber)
                     .companyName(request.companyName())
                     .ceoName(request.ceoName())
                     .businessAddress(request.businessAddress())
-                    .licenseImageUrl("pending_upload") // 💡 추후 파일 업로드 로직과 연결 필요
+                    .licenseImageUrl(businessLicenseStorage.store(license))
                     .build();
 
             // 프로모션 적용 로직 (Pessimistic Lock 등으로 동시성 제어 권장. 현재는 단순 반영)
@@ -153,6 +167,7 @@ public class MemberService {
                 businessInfo.applyPromotion(promotion, promotion.getFreeMonths());
             });
 
+            savedMember.registerBusinessInfo(businessInfo);
             businessInfoRepository.save(businessInfo);
         }
 
