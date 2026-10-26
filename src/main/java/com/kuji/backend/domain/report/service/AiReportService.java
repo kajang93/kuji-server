@@ -3,6 +3,7 @@ package com.kuji.backend.domain.report.service;
 import com.kuji.backend.domain.kuji.repository.DrawHistoryRepository;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.global.infra.ExternalApiHttpClient;
+import com.kuji.backend.domain.threads.service.ThreadsCommentStatsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,7 @@ public class AiReportService {
     private final MemberRepository memberRepository;
     private final DrawHistoryRepository drawHistoryRepository;
     private final MetricoolWebsiteClient metricoolWebsiteClient;
+    private final ThreadsCommentStatsService threadsCommentStatsService;
 
     @Value("${gemini.api-key}")
     private String geminiKey;
@@ -61,13 +63,18 @@ public class AiReportService {
                     .map(stats -> String.format("• 방문자. %d명\n• 페이지뷰. %d회", stats.visitors(), stats.pageViews()))
                     .orElse("• 방문자·페이지뷰. 미집계 (Metricool API 설정 또는 조회 확인 필요).");
 
+            String commentStats = threadsCommentStatsService.fetchDailyStats(reportDate)
+                    .map(stats -> String.format("• Threads 타인 댓글. %d개 (최근 30일 게시글 %d개에 전날 작성, 본인 댓글 제외).", stats.comments(), stats.posts()))
+                    .orElse("• Threads 타인 댓글. 미집계 (토큰·권한·전체 조회 확인 필요).");
+
             String rawStats = String.format(
                     "집계 기간. %s 00:00 이상 ~ %s 00:00 미만 (한국 시간, Asia/Seoul)\n" +
                     "• 신규 가입. %d명\n" +
                     "• 뽑기 내역. %d건\n" +
                     "%s\n" +
+                    "%s\n" +
                     "• 결제 성공·실패, 서버 다운타임. 미집계.",
-                    reportDate, reportDate.plusDays(1), newUsers, newDraws, websiteStats);
+                    reportDate, reportDate.plusDays(1), newUsers, newDraws, websiteStats, commentStats);
 
             String aiSummary = askGemini(rawStats);
             sendToSlack(rawStats + "\n\n*운영 메모*\n" + aiSummary);

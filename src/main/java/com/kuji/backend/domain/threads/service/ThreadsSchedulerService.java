@@ -1,203 +1,158 @@
+// 계정과 한국 날짜별 발행 상태를 기록하며 하루 한 본문과 첫 댓글을 게시합니다.
 package com.kuji.backend.domain.threads.service;
 
 import com.kuji.backend.domain.threads.client.ThreadsApiClient;
 import com.kuji.backend.domain.threads.dto.ThreadsPostResult;
+import com.kuji.backend.global.infra.ExternalApiHttpClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import com.kuji.backend.global.infra.ExternalApiHttpClient;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ThreadsSchedulerService {
-
-    private final ThreadsApiClient threadsApiClient;
-    private final ThreadsContentService threadsContentService;
+    private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+    private final ThreadsApiClient client;
+    private final ThreadsContentService contentService;
+    private final ThreadsRecentPosts recentPosts;
+    private final ThreadsPublicationHistory history;
 
     @Value("${threads.enabled:true}")
     private boolean threadsEnabled;
-
     @Value("${threads.access-token:mock}")
     private String accessToken;
-
     @Value("${slack.webhook-url:mock}")
     private String slackWebhookUrl;
-
     private final RestTemplate restTemplate = ExternalApiHttpClient.createRestTemplate();
 
-    /**
-     * 매일 오전 9시에 Threads에 글을 게시하고 첫 댓글도 자동으로 작성합니다.
-     * Cron: 초(0) 분(0) 시(9) 일(*) 월(*) 요일(*)
-     */
     @Scheduled(cron = "0 0 9 * * *", zone = "Asia/Seoul")
     public void scheduleDailyThreadsPost() {
-        if (!threadsEnabled) {
-            log.info("[Threads 스케줄러] threads.enabled=false 설정으로 포스팅을 건너뜁니다.");
-            return;
-        }
-        if ("mock".equalsIgnoreCase(accessToken) || accessToken.isBlank()) {
-            log.error("[Threads 스케줄러] 토큰이 없습니다. GitHub의 THREADS_ACCESS_TOKEN 또는 APPLICATION_SECRET_YML 내 threads.access-token을 설정하고 서버를 재배포하세요.");
-            return;
-        }
-
-        log.info("[Threads 스케줄러] ⏰ 오전 9시 정기 Threads 포스팅 & 댓글 작성을 시작합니다.");
+        if (!threadsEnabled || !configured(accessToken)) return;
         try {
-            ThreadsPostResult result = executePostAndReply(null, null);
-            log.info("[Threads 스케줄러] 정기 포스팅 완료: postId={}, replyId={}", result.getPostId(), result.getReplyId());
+            executePostAndReply(null, null);
+        } catch (ResponseStatusException e) {
+            log.info("[Threads 정기 발행] 오늘의 기존 발행 기록을 확인해 추가 본문을 게시하지 않았습니다.");
         } catch (Exception e) {
-            log.error("[Threads 스케줄러] 정기 포스팅 실행 중 예외 발생: {}", e.getMessage(), e);
+            log.error("[Threads 정기 발행] 발행 또는 상태 확인 실패. 오류 유형={}", e.getClass().getSimpleName());
+            notifySlack("🚨 Threads 정기 발행 확인 필요\n최근 글 조회 또는 발행 상태를 확인하지 못해 추가 게시를 중단했습니다.\n오류 유형. " + e.getClass().getSimpleName());
         }
     }
 
-    /**
-     * 글 게시 및 첫 댓글 작성 실행 (수동 또는 스케줄러 공통)
-     * 
-     * @param customPostText  직접 지정할 본문 (null이면 AI/템플릿 자동 생성)
-     * @param customReplyText 직접 지정할 댓글 (null이면 기본 댓글 템플릿 사용)
-     * @return 실행 결과 DTO
-     */
     public ThreadsPostResult executePostAndReply(String customPostText, String customReplyText) {
-        String postText = (customPostText != null && !customPostText.isBlank())
-                ? customPostText
-                : threadsContentService.generateDailyPostContent();
+        if (!threadsEnabled || !configured(accessToken)) throw new IllegalStateException("Threads 발행 설정과 토큰을 확인해주세요.");
+        String accountId = client.getMe().getId();
+        if (accountId == null || !accountId.matches("[0-9]{1,64}")) throw new IllegalStateException("Threads 계정을 확인하지 못했습니다.");
+        LocalDate day = LocalDate.now(ZONE);
+        var existing = history.find(accountId, day);
+        if (existing.isPresent()) {
+            var publication = existing.get();
+            if ("BODY_PUBLISHED".equals(publication.state())) return publishReply(publication);
+            if ("BODY_READY".equals(publication.state()) && history.transition(accountId, day, "BODY_READY", "BODY_PREPARING")) {
+                return publishBody(publication);
+            }
+            throw duplicate();
+        }
+        var remote = recentPosts.since(day.minusDays(30).atStartOfDay(ZONE).toInstant());
+        if (remote.stream().anyMatch(post -> ThreadsRecentPosts.timestamp(post.timestamp()).atZone(ZONE).toLocalDate().equals(day))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "오늘 이미 Threads 본문이 발행되어 추가 게시를 중단했습니다.");
+        }
+        ThreadsContentService.Candidate candidate;
+        if (customPostText != null && !customPostText.isBlank()) {
+            contentService.validateCustomPost(accountId, day, customPostText, remote);
+            candidate = new ThreadsContentService.Candidate("custom", customPostText.trim());
+        } else {
+            candidate = contentService.generate(accountId, day, remote);
+        }
+        String reply = customReplyText != null && !customReplyText.isBlank() ? customReplyText.trim() : contentService.generateDefaultReplyContent();
+        if (reply.length() > 500) throw new IllegalArgumentException("첫 댓글은 500자 이내로 작성해주세요.");
+        if (!history.claim(accountId, day, candidate.topicKey(), candidate.text(), reply)) throw duplicate();
+        return publishBody(new ThreadsPublicationHistory.Publication(accountId, day, candidate.topicKey(), candidate.text(), reply, null, null, "BODY_PREPARING"));
+    }
 
-        String replyText = (customReplyText != null && !customReplyText.isBlank())
-                ? customReplyText
-                : threadsContentService.generateDefaultReplyContent();
-
-        log.info("[Threads 실행] 본문 포스팅 준비:\n{}", postText);
-        log.info("[Threads 실행] 첫 댓글 준비:\n{}", replyText);
-
+    private ThreadsPostResult publishBody(ThreadsPublicationHistory.Publication publication) {
+        String account = publication.accountId();
+        LocalDate day = publication.day();
+        String postId;
         try {
-            // 1. 본문 컨테이너 생성
-            String postContainerId = threadsApiClient.createTextPostContainer(postText);
-            safeSleep(2000); // 메타 서버 처리 대기
+            String container = client.createTextPostContainer(publication.postText());
+            safeSleep();
+            if (!history.transition(account, day, "BODY_PREPARING", "BODY_PUBLISHING")) throw duplicate();
+            postId = client.publishContainer(container);
+            history.bodyPublished(account, day, postId);
+        } catch (Exception e) {
+            // 컨테이너 생성 실패는 안전하게 재시도할 수 있지만 실제 게시 응답 유실은 재게시하지 않습니다.
+            recordFailure(account, day, "BODY_PREPARING", "BODY_READY", "BODY_PUBLISHING");
+            notifySlack("🚨 Threads 발행 상태 확인 필요\n날짜. " + day + "\n본문·댓글을 다시 발행하기 전에 저장된 상태와 Threads 실제 피드를 확인해주세요.\n오류 유형. " + e.getClass().getSimpleName());
+            throw new IllegalStateException("Threads 발행을 완료하지 못했습니다. 저장된 상태를 확인한 뒤 재시도해주세요.");
+        }
+        return publishReply(new ThreadsPublicationHistory.Publication(account, day, publication.topicKey(), publication.postText(), publication.replyText(), postId, null, "BODY_PUBLISHED"));
+    }
 
-            // 2. 본문 게시
-            String publishedPostId = threadsApiClient.publishContainer(postContainerId);
-            safeSleep(2000); // 본문 등록 완료 대기
-
-            // 3. 댓글 컨테이너 생성 (reply_to_id 설정)
-            String replyContainerId = threadsApiClient.createReplyContainer(publishedPostId, replyText);
-            safeSleep(2000); // 댓글 처리 대기
-
-            // 4. 댓글 게시
-            String publishedReplyId = threadsApiClient.publishContainer(replyContainerId);
-
-            ThreadsPostResult result = ThreadsPostResult.builder()
-                    .success(true)
-                    .postId(publishedPostId)
-                    .replyId(publishedReplyId)
-                    .postContent(postText)
-                    .replyContent(replyText)
-                    .publishedAt(LocalDateTime.now())
-                    .build();
-
-            // 5. 성공 슬랙 알림 발송
-            notifySlackSuccess(result);
-
+    private ThreadsPostResult publishReply(ThreadsPublicationHistory.Publication publication) {
+        String account = publication.accountId();
+        LocalDate day = publication.day();
+        if (!history.transition(account, day, "BODY_PUBLISHED", "REPLY_PREPARING")) throw duplicate();
+        try {
+            String container = client.createReplyContainer(publication.postId(), publication.replyText());
+            safeSleep();
+            if (!history.transition(account, day, "REPLY_PREPARING", "REPLY_PUBLISHING")) throw duplicate();
+            String replyId = client.publishContainer(container);
+            history.replyPublished(account, day, replyId);
+            ThreadsPostResult result = ThreadsPostResult.builder().success(true).postId(publication.postId()).replyId(replyId)
+                    .postContent(publication.postText()).replyContent(publication.replyText()).publishedAt(LocalDateTime.now(ZONE)).build();
+            notifySlack("🧵 Threads 일간 발행 완료\n본문. " + publication.postText() + "\n\n첫 댓글. " + publication.replyText() + "\n\n새 댓글 알림과 전날 타인 댓글 수는 별도로 전달합니다.");
             return result;
         } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            log.error("[Threads 실행] 포스팅 또는 댓글 작성 실패: {}", errorMsg);
-
-            ThreadsPostResult failResult = ThreadsPostResult.builder()
-                    .success(false)
-                    .postContent(postText)
-                    .replyContent(replyText)
-                    .errorMessage(errorMsg)
-                    .publishedAt(LocalDateTime.now())
-                    .build();
-
-            // 실패 슬랙 알림 발송
-            notifySlackFailure(failResult);
-
-            throw new RuntimeException("Threads 포스팅 실패: " + errorMsg, e);
+            recordFailure(account, day, "REPLY_PREPARING", "BODY_PUBLISHED", "REPLY_PUBLISHING");
+            notifySlack("🚨 Threads 첫 댓글 확인 필요\n날짜. " + day + "\n본문은 발행되어 추가 본문을 만들지 않습니다. 첫 댓글 생성 실패는 댓글만 재시도하고, 게시 응답이 불확실하면 실제 피드를 먼저 확인해주세요.\n오류 유형. " + e.getClass().getSimpleName());
+            throw new IllegalStateException("본문은 발행되었으나 첫 댓글을 완료하지 못했습니다. 저장된 댓글 상태를 확인해주세요.");
         }
     }
 
-    private void safeSleep(long millis) {
+    private void recordFailure(String account, LocalDate day, String preparing, String retryable, String publishing) {
         try {
-            Thread.sleep(millis);
-        } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
+            history.transition(account, day, preparing, retryable);
+            history.transition(account, day, publishing, "UNCERTAIN");
+        } catch (Exception e) {
+            // DB도 사용할 수 없는 경우에도 아래 Slack 진단 알림은 시도합니다.
+            log.error("[Threads 발행 기록] 실패 상태를 저장하지 못했습니다. 오류 유형={}", e.getClass().getSimpleName());
         }
     }
 
-    private void notifySlackSuccess(ThreadsPostResult result) {
-        if ("mock".equalsIgnoreCase(slackWebhookUrl) || slackWebhookUrl == null || slackWebhookUrl.isBlank()) {
-            return;
-        }
+    private ResponseStatusException duplicate() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "오늘의 Threads 발행이 완료되었거나 처리 중입니다. 발행 결과가 불확실한 경우 확인 전 재게시하지 않습니다.");
+    }
+
+    private void safeSleep() {
+        try { Thread.sleep(2000); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Threads 게시 대기가 중단되었습니다."); }
+    }
+
+    private void notifySlack(String message) {
+        if (!configured(slackWebhookUrl)) return;
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-
-            String message = String.format("""
-                    🧵 *[Threads 일간 포스팅 & 댓글 발행 완료]*
-                    • 포스트 ID: `%s`
-                    • 댓글 ID: `%s`
-                    • 발행 일시: %s
-
-                    📝 *본문 내용:*
-                    >>> %s
-
-                    💬 *첫 댓글 내용:*
-                    >>> %s
-                    """,
-                    result.getPostId(),
-                    result.getReplyId(),
-                    result.getPublishedAt(),
-                    result.getPostContent(),
-                    result.getReplyContent());
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("text", message);
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            restTemplate.postForEntity(slackWebhookUrl, request, String.class);
+            var response = restTemplate.postForEntity(slackWebhookUrl, new HttpEntity<>(Map.of("text", "Threads 운영 알림", "blocks", java.util.List.of(Map.of("type", "section", "text", Map.of("type", "plain_text", "text", message)))), headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || !"ok".equals(response.getBody())) throw new IllegalStateException("Slack 수신 확인을 받지 못했습니다.");
         } catch (Exception e) {
-            log.warn("[Threads 슬랙 알림] 발송 실패 ({})", e.getClass().getSimpleName());
+            log.warn("[Threads Slack] 알림 전달 실패. 오류 유형={}", e.getClass().getSimpleName());
         }
     }
 
-    private void notifySlackFailure(ThreadsPostResult result) {
-        if ("mock".equalsIgnoreCase(slackWebhookUrl) || slackWebhookUrl == null || slackWebhookUrl.isBlank()) {
-            return;
-        }
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            String message = String.format("""
-                    🚨 *[Threads 포스팅 실패 경고]*
-                    • 오류 메시지: `%s`
-                    • 시도 일시: %s
-
-                    📝 *시도한 본문:*
-                    >>> %s
-                    """,
-                    result.getErrorMessage(),
-                    result.getPublishedAt(),
-                    result.getPostContent());
-
-            Map<String, Object> body = new HashMap<>();
-            body.put("text", message);
-
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            restTemplate.postForEntity(slackWebhookUrl, request, String.class);
-        } catch (Exception e) {
-            log.warn("[Threads 슬랙 알림] 발송 실패 ({})", e.getClass().getSimpleName());
-        }
-    }
+    private boolean configured(String value) { return value != null && !value.isBlank() && !"mock".equalsIgnoreCase(value.trim()); }
 }

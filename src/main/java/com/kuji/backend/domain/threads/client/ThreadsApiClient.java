@@ -58,7 +58,7 @@ public class ThreadsApiClient {
     }
 
     public ThreadsMediaPage getRecentPostPage(Instant since, String after) {
-        return getMediaPage("/" + getTargetUserId() + "/threads", "id,username,timestamp", after,
+        return getMediaPage("/" + getTargetUserId() + "/threads", "id,text,username,timestamp", after,
                 since.atZone(ZoneOffset.UTC).toLocalDate().toString());
     }
 

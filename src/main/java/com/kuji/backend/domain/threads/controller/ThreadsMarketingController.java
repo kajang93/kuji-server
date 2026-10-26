@@ -60,6 +60,8 @@ public class ThreadsMarketingController {
         try {
             ThreadsPostResult result = threadsSchedulerService.executePostAndReply(null, null);
             return ResponseEntity.ok(result);
+        } catch (org.springframework.web.server.ResponseStatusException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
                     "success", false,
@@ -77,6 +79,8 @@ public class ThreadsMarketingController {
                     request.getText(),
                     request.getReplyText());
             return ResponseEntity.ok(result);
+        } catch (org.springframework.web.server.ResponseStatusException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
                     "success", false,
