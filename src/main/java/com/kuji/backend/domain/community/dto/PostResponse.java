@@ -15,6 +15,7 @@ public record PostResponse(
         String content,
         PostCategory category,
         int viewCount,
+        Long authorId,
         String authorName,
         String authorEmail,
         List<String> imageUrls,
@@ -40,6 +41,7 @@ public record PostResponse(
                 .content(post.getContent())
                 .category(post.getCategory())
                 .viewCount(post.getViewCount())
+                .authorId(post.getMember().getId())
                 .authorName(post.getMember().getNickname())
                 .authorEmail(post.getMember().getEmail())
                 .imageUrls(urls)

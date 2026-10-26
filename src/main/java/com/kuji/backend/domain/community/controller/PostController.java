@@ -10,7 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,11 +29,10 @@ public class PostController {
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Long> createPost(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @RequestPart("request") PostCreateRequest request,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         return ResponseEntity.ok(postService.createPost(memberId, request, files));
     }
 
@@ -42,11 +41,10 @@ public class PostController {
      */
     @GetMapping
     public ResponseEntity<Page<PostResponse>> getPosts(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @RequestParam(name = "category", required = false) PostCategory category,
             @PageableDefault(size = 10) Pageable pageable) {
         
-        Long memberId = authentication != null ? (Long) authentication.getPrincipal() : null;
         return ResponseEntity.ok(postService.getPosts(memberId, category, pageable));
     }
 
@@ -55,9 +53,8 @@ public class PostController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<PostResponse> getPostDetail(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("id") Long postId) {
-        Long memberId = authentication != null ? (Long) authentication.getPrincipal() : null;
         return ResponseEntity.ok(postService.getPostDetail(memberId, postId));
     }
 
@@ -66,12 +63,11 @@ public class PostController {
      */
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> updatePost(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("id") Long postId,
             @RequestPart("request") PostCreateRequest request,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         postService.updatePost(memberId, postId, request, files);
         return ResponseEntity.ok().build();
     }
@@ -81,10 +77,9 @@ public class PostController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("id") Long postId) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         postService.deletePost(memberId, postId);
         return ResponseEntity.ok().build();
     }
@@ -94,10 +89,9 @@ public class PostController {
      */
     @PostMapping("/{id}/like")
     public ResponseEntity<Void> toggleLike(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("id") Long postId) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         postInteractionService.toggleLike(memberId, postId);
         return ResponseEntity.ok().build();
     }
@@ -107,10 +101,9 @@ public class PostController {
      */
     @PostMapping("/{id}/wish")
     public ResponseEntity<Void> toggleWishlist(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("id") Long postId) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         postInteractionService.toggleWishlist(memberId, postId);
         return ResponseEntity.ok().build();
     }

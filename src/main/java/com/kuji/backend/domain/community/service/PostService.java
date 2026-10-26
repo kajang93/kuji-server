@@ -6,9 +6,16 @@ import com.kuji.backend.domain.community.entity.Post;
 import com.kuji.backend.domain.community.enums.PostCategory;
 import com.kuji.backend.domain.community.repository.PostRepository;
 import com.kuji.backend.domain.member.entity.Member;
+import com.kuji.backend.domain.member.enums.RoleType;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.global.service.S3Service;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -37,6 +45,8 @@ public class PostService {
     public Long createPost(Long memberId, PostCreateRequest request, List<MultipartFile> files) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+
+        validateNoticePermission(member, request.category());
 
         // 최대 3개까지 사진 업로드 및 URL 추출
         List<String> imageUrls = uploadFiles(files);
@@ -63,7 +73,7 @@ public class PostService {
     @Transactional
     public PostResponse getPostDetail(Long memberId, Long postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
         
         post.increaseViewCount();
         return mapToPostResponse(post, memberId);
@@ -105,12 +115,14 @@ public class PostService {
      */
     @Transactional
     public void updatePost(Long memberId, Long postId, PostCreateRequest request, List<MultipartFile> files) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+        Post post = postRepository.findByIdWithLock(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
 
         if (!post.getMember().getId().equals(memberId)) {
-            throw new IllegalArgumentException("본인의 게시글만 수정할 수 있습니다.");
+            throw new AccessDeniedException("본인의 게시글만 수정할 수 있습니다.");
         }
+
+        validateNoticePermission(post.getMember(), request.category());
 
         // 새 파일이 있으면 업로드, 없으면 기존 이미지 유지
         String img1 = post.getImage1();
@@ -132,19 +144,44 @@ public class PostService {
      */
     @Transactional
     public void deletePost(Long memberId, Long postId) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
+        Post post = postRepository.findByIdWithLock(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 게시글입니다."));
 
         if (!post.getMember().getId().equals(memberId)) {
-            throw new IllegalArgumentException("본인의 게시글만 삭제할 수 있습니다.");
+            throw new AccessDeniedException("본인의 게시글만 삭제할 수 있습니다.");
         }
 
-        // S3에서 이미지 삭제
-        if (post.getImage1() != null) s3Service.deleteFile(post.getImage1());
-        if (post.getImage2() != null) s3Service.deleteFile(post.getImage2());
-        if (post.getImage3() != null) s3Service.deleteFile(post.getImage3());
+        List<String> images = new ArrayList<>();
+        if (post.getImage1() != null) images.add(post.getImage1());
+        if (post.getImage2() != null) images.add(post.getImage2());
+        if (post.getImage3() != null) images.add(post.getImage3());
 
+        // 부모 삭제 전에 외래 키를 가진 댓글·좋아요·찜을 같은 트랜잭션에서 정리한다.
+        commentRepository.deleteAllByPost(post);
+        postLikeRepository.deleteAllByPost(post);
+        postWishlistRepository.deleteAllByPost(post);
         postRepository.delete(post);
+        postRepository.flush();
+
+        // DB 롤백 시 원래 게시글의 첨부 파일을 보존한다.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (String image : images) {
+                    try {
+                        s3Service.deleteFile(image);
+                    } catch (RuntimeException e) {
+                        log.warn("[게시글 삭제] 첨부 파일 정리 실패 ({})", e.getClass().getSimpleName());
+                    }
+                }
+            }
+        });
+    }
+
+    private void validateNoticePermission(Member member, PostCategory category) {
+        if (category == PostCategory.NOTICE && member.getRole() != RoleType.ADMIN) {
+            throw new AccessDeniedException("공지사항은 관리자만 작성할 수 있습니다.");
+        }
     }
 
     private List<String> uploadFiles(List<MultipartFile> files) {

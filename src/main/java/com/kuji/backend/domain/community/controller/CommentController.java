@@ -5,7 +5,7 @@ import com.kuji.backend.domain.community.dto.CommentResponse;
 import com.kuji.backend.domain.community.service.CommentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -20,11 +20,10 @@ public class CommentController {
 
     @PostMapping
     public ResponseEntity<Void> createComment(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("postId") Long postId,
             @Valid @RequestBody CommentRequest request) {
         
-        Long memberId = (Long) authentication.getPrincipal();
         commentService.createComment(memberId, postId, request);
         return ResponseEntity.ok().build();
     }
@@ -36,24 +35,22 @@ public class CommentController {
 
     @PutMapping("/{commentId}")
     public ResponseEntity<Void> updateComment(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("postId") Long postId,
             @PathVariable("commentId") Long commentId,
             @Valid @RequestBody CommentRequest request) {
         
-        Long memberId = (Long) authentication.getPrincipal();
-        commentService.updateComment(memberId, commentId, request);
+        commentService.updateComment(memberId, postId, commentId, request);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{commentId}")
     public ResponseEntity<Void> deleteComment(
-            Authentication authentication,
+            @AuthenticationPrincipal Long memberId,
             @PathVariable("postId") Long postId,
             @PathVariable("commentId") Long commentId) {
         
-        Long memberId = (Long) authentication.getPrincipal();
-        commentService.deleteComment(memberId, commentId);
+        commentService.deleteComment(memberId, postId, commentId);
         return ResponseEntity.ok().build();
     }
 }

@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public record CommentResponse(
         Long id,
         String content,
+        Long authorId,
         String authorName,
         String authorEmail,
         String profileImageUrl,
@@ -18,6 +19,7 @@ public record CommentResponse(
         return CommentResponse.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
+                .authorId(comment.getMember().getId())
                 .authorName(comment.getMember().getNickname())
                 .authorEmail(comment.getMember().getEmail())
                 .profileImageUrl(comment.getMember().getProfileImageUrl())
