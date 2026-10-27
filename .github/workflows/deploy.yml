@@ -96,6 +96,16 @@ jobs:
           target: "~/"
           strip_components: 2
 
+      - name: Copy image cache configuration
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          source: "scripts/nginx/*,scripts/install_image_cache.py"
+          target: "~/kuji-infra-temp"
+          strip_components: 1
+
       - name: Restart Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -105,7 +115,7 @@ jobs:
           script: |
             # Nginx 업로드 용량 제한 해제 (413 Request Entity Too Large 에러 방지)
             echo "client_max_body_size 50M;" | sudo tee /etc/nginx/conf.d/upload_size.conf
-            sudo systemctl reload nginx
+            sudo python3 ~/kuji-infra-temp/install_image_cache.py
             
             # Move the jar to the final name expected by the systemd service
             mv ~/kuji-server-0.0.1-SNAPSHOT.jar ~/kuji-server.jar

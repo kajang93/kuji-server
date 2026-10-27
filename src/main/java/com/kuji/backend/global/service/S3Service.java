@@ -49,6 +49,7 @@ public class S3Service {
                     .bucket(bucket)
                     .key(fileName)
                     .contentType(file.getContentType())
+                    .cacheControl("public, max-age=31536000, immutable")
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
@@ -69,6 +70,7 @@ public class S3Service {
                 .bucket(bucket)
                 .key(fileName)
                 .contentType(contentType)
+                .cacheControl("public, max-age=31536000, immutable")
                 .build();
         s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucket, region, fileName);
