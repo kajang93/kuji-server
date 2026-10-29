@@ -7,6 +7,8 @@ import com.kuji.backend.domain.business.service.BusinessLicenseStorage;
 import com.kuji.backend.domain.member.dto.BusinessProfileResponse;
 import com.kuji.backend.domain.member.entity.BusinessInfo;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @RequestMapping("/api/business")
 public class BusinessController {
+    private static final Logger auditLogger = LoggerFactory.getLogger("com.kuji.backend.audit");
     private final BusinessInfoService businessInfoService;
     private final BusinessLicenseStorage licenseStorage;
 
@@ -39,6 +42,7 @@ public class BusinessController {
     public ResponseEntity<Resource> downloadLicense(@AuthenticationPrincipal Long requesterId, @PathVariable("memberId") Long memberId) {
         BusinessInfo info = businessInfoService.getAccessibleBusiness(requesterId, memberId);
         Resource resource = licenseStorage.open(info.getLicenseImageUrl());
+        auditLogger.info("사업자 등록증 열람. requesterId={}, businessMemberId={}", requesterId, memberId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .header("X-Content-Type-Options", "nosniff")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"business-license." + resource.getFilename().replaceAll(".*\\.", "") + "\"")

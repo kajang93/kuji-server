@@ -2,6 +2,8 @@
 package com.kuji.backend.domain.business.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 @Service
 public class BusinessLicenseStorage {
+    private static final Logger auditLogger = LoggerFactory.getLogger("com.kuji.backend.audit");
     private static final String PREFIX = "private-license:";
     private static final long MAX_SIZE = 5 * 1024 * 1024;
     private final Path directory;
@@ -107,7 +110,9 @@ public class BusinessLicenseStorage {
     private void delete(String key) {
         Path path = resolve(key);
         if (path != null) {
-            try { Files.deleteIfExists(path); } catch (IOException ignored) { /* 저장 기록은 유지되므로 운영자가 재정리할 수 있습니다. */ }
+            try { Files.deleteIfExists(path); } catch (IOException error) {
+                auditLogger.error("사업자 등록증 삭제 실패. 저장 키={}", key, error);
+            }
         }
     }
 }

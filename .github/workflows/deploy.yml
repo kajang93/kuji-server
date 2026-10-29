@@ -102,7 +102,7 @@ jobs:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USERNAME }}
           key: ${{ secrets.AWS_PRIVATE_KEY }}
-          source: "scripts/nginx/*,scripts/install_image_cache.py"
+          source: "scripts/nginx/*,scripts/install_image_cache.py,scripts/backup_kuji.py,scripts/systemd/*"
           target: "~/kuji-infra-temp"
           strip_components: 1
 
@@ -116,6 +116,12 @@ jobs:
             # Nginx 업로드 용량 제한 해제 (413 Request Entity Too Large 에러 방지)
             echo "client_max_body_size 50M;" | sudo tee /etc/nginx/conf.d/upload_size.conf
             sudo python3 ~/kuji-infra-temp/install_image_cache.py
+            sudo install -d -m 700 /var/backups/kuji
+            sudo install -m 700 ~/kuji-infra-temp/backup_kuji.py /usr/local/sbin/kuji-backup
+            sudo install -m 644 ~/kuji-infra-temp/systemd/kuji-backup.service /etc/systemd/system/kuji-backup.service
+            sudo install -m 644 ~/kuji-infra-temp/systemd/kuji-backup.timer /etc/systemd/system/kuji-backup.timer
+            sudo systemctl daemon-reload
+            sudo systemctl enable --now kuji-backup.timer
             
             # Move the jar to the final name expected by the systemd service
             mv ~/kuji-server-0.0.1-SNAPSHOT.jar ~/kuji-server.jar

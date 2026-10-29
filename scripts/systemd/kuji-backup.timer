@@ -1,0 +1,11 @@
+# 매일 한국 시간 새벽 네 시에 백업하고 중단 기간의 누락 실행을 보완합니다.
+[Unit]
+Description=Daily Kuji backup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Seoul
+Persistent=true
+Unit=kuji-backup.service
+
+[Install]
+WantedBy=timers.target

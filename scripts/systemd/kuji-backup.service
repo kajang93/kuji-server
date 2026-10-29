@@ -1,0 +1,13 @@
+# 결제 DB와 비공개 사업자 서류의 일일 백업을 실행합니다.
+[Unit]
+Description=Kuji database and private document backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/local/sbin/kuji-backup
+TimeoutStartSec=600
+Nice=10
