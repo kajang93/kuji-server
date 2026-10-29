@@ -1,112 +1,31 @@
-# AGENTS.md (AI 전역 규칙 및 행동 지침)
+# 쿠지 서버 작업 규칙
 
-Behavioral guidelines for AI coding agents (Codex, Claude, etc.). This file integrates global AI behaviors and project-specific instructions for the OshiKuji Client project.
+## 필수 규칙
+- 현재 사용자 지시가 우선이다. 한국어로 간결하게 답하고 한국어 문장을 콜론으로 끝내지 않는다.
+- 커밋 메시지는 100% 한글이며 영어 접두사를 쓰지 않는다. 검증한 논리 단위별로 커밋한다.
+- 테스트 파일과 계획·작업 추적 문서는 커밋하지 않는다. 사용자가 수정을 요청한 `AGENTS.md`는 이 제외 대상이 아니다.
+- 기존 사용자 변경을 보존한다. 요청과 무관한 삭제·재정렬·전체 포맷팅·추상화를 하지 않는다.
+- 비밀값은 환경변수·비공개 설정으로 관리하며 코드·로그·커밋·답변에 노출하지 않는다.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+## 구현 기준
+- Java 21·Spring Boot·Gradle의 기존 구조와 스타일을 따른다. 새 소스 첫 줄에 역할을 설명하는 한국어 주석을 쓰며 설정 파일은 제외한다.
+- 운영 DB는 `ddl-auto: none`을 유지한다. 스키마 변경은 `scripts/sql`에 작성하고 배포 전에 적용·검증한다. `create`·`update`는 사용하지 않는다.
+- 결제·포인트·재고는 소유권, 서버 금액 검증, 트랜잭션·잠금 순서와 멱등성을 유지한다. 외부 성공과 DB 실패 사이의 복구 경로를 보존한다.
+- 정산은 거래 당시 DB 수수료를 저장하고 주문 전체 배송 완료 및 진행 중 환불 검토 여부를 확인한다. 정산대상액과 실제 지급액을 구분한다.
+- 라스트상은 일반 추첨·유상 티켓에서 제외하고 마지막 일반 티켓 구매자에게 추가한다. 과거 지급을 재실행하지 않는다.
+- 등록증은 공개 이미지 경로·캐시와 분리한다. 본인·관리자 접근과 파일 검증을 유지한다. 푸시는 거래 커밋 후 보내며 마케팅은 동의를 확인한다.
 
-## 🎯 Project-Specific Rules (OshiKuji Client)
+## 작업과 토큰 관리
+- `git status`와 범위를 좁힌 `rg` 검색으로 시작하고 수정할 코드와 인접 호출부를 읽는다.
+- 변경 없는 파일을 반복해서 읽거나 저장소·의존성·생성물 전체를 나열하지 않는다. 새 증거가 필요할 때 범위를 넓힌다.
+- 독립된 검색·읽기는 묶고, 편집·승인·의존 작업은 순서대로 수행한다.
+- 긴 명령 출력은 임시 로그로 저장하고 결과만 요약한다. 실패 시 실제 오류와 필요한 스택을 읽고 수정한다.
+- 하위 에이전트는 독립 작업에만 사용한다. 필요한 경로·목표·제약만 전달하고 중복 조사와 같은 파일 동시 편집을 피한다.
+- 복잡하거나 재개할 작업은 저장소 밖의 작업 노트 하나에 계획·체크리스트·결정·다음 행동·검증 결과를 유지한다. 단순 수정에는 별도 문서를 늘리지 않는다.
+- 일상적인 구현 판단은 진행한다. 범위·금전·개인정보·복구 불가능한 데이터 처리에 영향을 주는 불확실성만 확인한다.
 
-### 1. 커밋 메시지 규칙 (가장 중요)
-- 모든 커밋 메시지는 **반드시 100% 한글**로만 작성하세요.
-- `feat:`, `fix:`, `chore:`, `README:` 등 영어로 된 접두사를 **절대 사용하지 마세요**.
-- 변경 사항을 한글로 명확하게 풀어서 설명하세요. (예: "회원가입 문자 인증 연동 완료", "리드미 문서 기능 업데이트")
-
-### 2. 스타일링 및 UI 규칙
-- 프리미엄 UI/UX 디자인을 최우선으로 적용하세요.
-- `Tailwind CSS`를 기본으로 사용하며, 애니메이션은 `Framer Motion`, 아이콘은 `Lucide React`를 사용하세요.
-- 다크 모드를 기본으로 하며, 배경은 `Slate-900`에서 `Indigo-950` 색상(또는 `Deep Black`)을, 강조 색상은 `Rose`, `Amber`, `Cyan` 등을 사용하세요.
-
-### 3. 코드 작성 스타일
-- `TypeScript`를 기반으로 한 함수형 컴포넌트(`React.FC`)를 사용하세요.
-- API 키나 민감한 정보는 절대 코드에 하드코딩하지 말고 환경 변수(`.env`)를 사용하세요.
-
----
-
-## 🤖 AI Behavioral Guidelines
-
-### 1. Think Before Coding
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-**Minimum code that solves the problem. Nothing speculative.**
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-### 3. Surgical Changes
-**Touch only what you must. Clean up only your own mess.**
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-### 4. Goal-Driven Execution
-**Define success criteria. Loop until verified.**
-- Transform tasks into verifiable goals (e.g., "Fix the bug" -> "Write a test that reproduces it, then make it pass").
-- Strong success criteria let you loop independently. Weak criteria require constant clarification.
-
-### 5. Workspace Evidence Before Edits
-**Inspect the actual files you will touch. Don't rely on memory or stale summaries.**
-- Use project tools to find the relevant implementation.
-- Read the exact files and nearby call sites before editing them.
-- Treat open editor tabs, filenames, READMEs as hints, not proof.
-
-### 6. Respect The Worktree
-**Assume uncommitted changes belong to the user unless you made them.**
-- Do not revert, overwrite, or reformat unrelated changes.
-- If user changes touch the same files, read them and adapt.
-- Never run destructive git commands unless explicitly asked.
-
-### 7. No Closing Colons (Korean Output)
-**End Korean sentences with a period, not a colon.**
-- When the user writes in Korean, your output is also Korean.
-- Don't end Korean sentences with `:` even if the next line is a list or example. (Use `.`, `?`, or `!`).
-
-### 8. File Header Comments in Korean
-**First line of every new source file: a one-line Korean comment stating its role.**
-- `// 사용자 인증 상태를 관리하는 Context Provider`
-- Place it directly under required directives (`'use client'`).
-- Skip config files.
-
-### 9. Plan + Checklist + Context Notes
-**Before any non-trivial task, produce artifacts. Don't start coding without them.**
-- **Plan** - what we're building and why.
-- **Checklist** (`checklist.md`) - concrete tasks as checkboxes.
-- **Context Notes** (`context-notes.md`) - decisions made during the work.
-
-**⚠️ 중요: `checklist.md`와 `context-notes.md` 등 계획/작업 추적용 임시 아티팩트 파일들은 절대 Git에 커밋하지 마세요.**
-
-### 10. Run Tests Before Marking Complete
-**If you touched code, run the relevant tests before saying "done".**
-- Run the smallest relevant check first.
-- If no test setup exists, verify the project builds or typechecks.
-- This is non-negotiable.
-
-### 11. Verification Evidence In The Final Reply
-**Report what you actually verified, not what you intended to verify.**
-- Include the command or check that ran.
-- Include the result.
-- Do not write "done" unless backed by a concrete check.
-
-### 12. Semantic Commits
-**Commit when one logical change is complete. Don't wait for the user to ask.**
-- Keep it to one meaningful logical change.
-- Never create a commit automatically unless it passes the "describe in one sentence" test.
-*(Note: Project specific rule overrides prefix usage: DO NOT use english prefixes like feat: or fix: for this project.)*
-
-### 13. Read Errors, Don't Guess
-**Read the actual error/log line. Don't pattern-match from memory.**
-- Read the full error message and stack trace.
-- Check the actual log output.
-- Don't apply a "common fix" before confirming the cause.
-
----
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, verification is reported with exact checks, and clarifying questions come before implementation rather than after mistakes.
+## 검증과 완료
+- 관련 테스트부터 실행한다. 패키징은 `./gradlew bootJar -x test`로 확인하며 패키징 성공을 테스트 통과로 보고하지 않는다.
+- 병렬 Gradle 검증은 출력과 프로젝트 캐시 경로를 분리한다.
+- 코드 변경·실패·새 우려 없이 통과한 검증을 반복하지 않는다. 실패를 숨기거나 빌드만으로 기능 성공을 주장하지 않는다.
+- 최종 답변은 변경 내용, 실제 실행한 검증과 결과, 미완료 사항만 간결하게 보고한다.
