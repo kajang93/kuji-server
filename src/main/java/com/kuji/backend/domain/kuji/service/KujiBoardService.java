@@ -162,9 +162,10 @@ public class KujiBoardService {
                 throw new IllegalArgumentException("사업자 심사가 승인된 후에만 운영중(ACTIVE) 상태로 변경할 수 있습니다.");
             }
             List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+            LastPrizeRules.validateLastPrize(items);
             if (kujiBoard.getPricePerDraw() == null || kujiBoard.getPricePerDraw() < 1 ||
                     kujiBoard.getPricePerDraw() > Integer.MAX_VALUE || items.isEmpty() ||
-                    items.stream().noneMatch(item -> item.getRemainQty() != null && item.getRemainQty() > 0) ||
+                    LastPrizeRules.remainingTickets(items) < 1 ||
                     items.stream().anyMatch(item -> item.getName() == null || item.getName().isBlank() || item.getTotalQty() == null || item.getTotalQty() < 1) ||
                     kujiBoardImageRepository.findAllByKujiBoardIdOrderBySequenceAsc(boardId).stream().noneMatch(img -> img.getImageType() == BoardImageType.THUMBNAIL)) {
                 throw new IllegalArgumentException("가격, 상품명, 재고와 대표 이미지를 등록한 후 판매를 시작해 주세요.");
@@ -285,6 +286,8 @@ public class KujiBoardService {
                             .totalCount(stock != null ? stock.getTotalQty().intValue() : 0)
                             .remainCount(stock != null ? stock.getRemainQty().intValue() : 0)
                             .gradeCount(stock != null ? stock.getGradeCount().intValue() : 0)
+                            .hasLastPrize(stock != null && stock.getLastPrizeQty() > 0)
+                            .lastPrizeAvailable(stock != null && stock.getLastPrizeRemainQty() > 0)
                             .isWished(wishedBoardIds.contains(board.getId()))
                             .images(images.stream()
                                     .map(img -> KujiBoardResponse.KujiBoardImageResponse.builder()

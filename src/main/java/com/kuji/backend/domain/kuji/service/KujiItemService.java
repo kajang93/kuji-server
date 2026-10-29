@@ -43,11 +43,15 @@ public class KujiItemService {
         if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("등록할 상품이 없습니다.");
         if (images != null && images.size() != requests.size()) throw new IllegalArgumentException("상품과 이미지의 순서를 확인해 주세요.");
         requests.forEach(request -> validateItem(request.getGrade(), request.getName(), request.getTotalQty()));
+        long existingLastPrizes = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId).stream()
+                .filter(item -> LastPrizeRules.isLastGrade(item.getGrade())).count();
+        long newLastPrizes = requests.stream().filter(request -> LastPrizeRules.isLastGrade(request.getGrade())).count();
+        if (existingLastPrizes + newLastPrizes > 1) throw new IllegalArgumentException("라스트상은 한 종류만 등록할 수 있습니다.");
 
         for (int i = 0; i < requests.size(); i++) {
             KujiItemCreateRequest request = requests.get(i);
             KujiItem kujiItem = KujiItem.builder()
-                    .grade(request.getGrade().trim())
+                    .grade(LastPrizeRules.normalizeGrade(request.getGrade()))
                     .name(request.getName().trim())
                     .totalQty(request.getTotalQty())
                     .options(request.getOptions())
@@ -87,7 +91,11 @@ public class KujiItemService {
         String newOptions = request.getOptions() != null ? request.getOptions() : kujiItem.getOptions();
 
         validateItem(newGrade, newName, newQty);
-        kujiItem.update(newGrade.trim(), newName.trim(), newQty, newOptions);
+        if (LastPrizeRules.isLastGrade(newGrade) && kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(kujiItem.getKujiBoard().getId()).stream()
+                .anyMatch(item -> !item.getId().equals(itemId) && LastPrizeRules.isLastGrade(item.getGrade()))) {
+            throw new IllegalArgumentException("라스트상은 한 종류만 등록할 수 있습니다.");
+        }
+        kujiItem.update(LastPrizeRules.normalizeGrade(newGrade), newName.trim(), newQty, newOptions);
     }
 
     /**
@@ -146,6 +154,7 @@ public class KujiItemService {
     }
 
     private void validateItem(String grade, String name, Integer quantity) {
+        LastPrizeRules.validateQuantity(grade, quantity);
         if (grade == null || grade.isBlank() || grade.length() > 10 || name == null || name.isBlank() || name.length() > 100 || quantity == null || quantity < 1 || quantity > 100000) {
             throw new IllegalArgumentException("등급, 100자 이내의 상품명과 1개 이상 100000개 이하의 수량을 입력해 주세요.");
         }
@@ -184,6 +193,7 @@ public class KujiItemService {
         return KujiItemResponse.builder()
                 .id(item.getId())
                 .grade(item.getGrade())
+                .lastPrize(LastPrizeRules.isLastGrade(item.getGrade()))
                 .name(item.getName())
                 .totalQty(total)
                 .remainQty(remain)

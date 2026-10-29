@@ -27,6 +27,7 @@ import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
 import com.kuji.backend.domain.payment.service.PaymentRecoveryService;
+import com.kuji.backend.domain.settlement.service.SettlementService;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
 import com.kuji.backend.domain.notification.entity.NotificationType;
@@ -46,7 +47,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +66,7 @@ public class KujiDrawService {
     private final NotificationService notificationService;
     private final WishlistNotificationService wishlistNotificationService;
     private final PaymentRecoveryService paymentRecoveryService;
+    private final SettlementService settlementService;
     private final PaymentRepository paymentRepository;
     private final PaymentSessionRepository paymentSessionRepository;
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
@@ -113,6 +114,11 @@ public class KujiDrawService {
         
         validateSaleAvailable(board);
         int totalOriginalAmount = calculateRequiredAmount(board, count);
+        List<KujiItem> items = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+        LastPrizeRules.validateLastPrize(items);
+        if (LastPrizeRules.remainingTickets(items) < count) {
+            throw new IllegalStateException("요청한 수량보다 남은 일반 티켓이 부족합니다.");
+        }
         if (pointsUsed < 0) {
             throw new IllegalArgumentException("사용 포인트는 음수일 수 없습니다.");
         }
@@ -188,9 +194,10 @@ public class KujiDrawService {
         validateSaleAvailable(board);
         int totalRequiredAmount = calculateRequiredAmount(board, count);
         List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
-        long availableCount = allItems.stream().mapToLong(item -> Math.max(0, item.getRemainQty())).sum();
+        LastPrizeRules.validateLastPrize(allItems);
+        long availableCount = LastPrizeRules.remainingTickets(allItems);
         if (availableCount < count) {
-            throw new IllegalStateException("요청한 수량보다 남은 상품이 부족합니다.");
+            throw new IllegalStateException("요청한 수량보다 남은 일반 티켓이 부족합니다.");
         }
 
         // 결제 승인은 잠근 재고가 요청 수량을 충족하는 경우에만 진행합니다.
@@ -270,66 +277,52 @@ public class KujiDrawService {
         List<DrawHistory> drawHistories = new ArrayList<>();
         Random random = new Random();
 
-        // 3. 요청한 갯수만큼 반복 추첨
+        // 라스트상은 일반 티켓에 포함하지 않고 마지막 일반 티켓 구매자에게만 추가합니다.
         for (int i = 0; i < count; i++) {
             List<KujiItem> availableItems = allItems.stream()
-                    .filter(it -> it.getRemainQty() > 0)
-                    .collect(Collectors.toList());
-
-            int totalRemain = availableItems.stream()
-                    .mapToInt(KujiItem::getRemainQty)
-                    .sum();
-
-            if (totalRemain <= 0) {
-                throw new IllegalStateException("남은 상품이 없습니다.");
-            }
-
-            // 가중치 기반 랜덤 선택
-            int n = random.nextInt(totalRemain) + 1;
-            int sum = 0;
+                    .filter(item -> !LastPrizeRules.isLastGrade(item.getGrade()) && item.getRemainQty() > 0)
+                    .toList();
+            long totalRemain = LastPrizeRules.remainingTickets(availableItems);
+            long selected = random.nextLong(totalRemain) + 1;
+            long cumulative = 0;
             for (KujiItem item : availableItems) {
-                sum += item.getRemainQty();
-                if (n <= sum) {
-                    // 당첨!
+                cumulative += item.getRemainQty();
+                if (selected <= cumulative) {
                     item.decreaseRemainQty();
                     winningItems.add(item);
-
-                    // 당첨 이력 생성 (drawhistory 테이블 매핑)
-                    DrawHistory history = DrawHistory.builder()
-                            .status(DrawStatus.DRAWN)
-                            .member(member)
-                            .kujiBoard(board)
-                            .kujiItem(item)
-                            .build();
-                    DrawHistory savedHistory = drawHistoryRepository.save(history);
-                    drawHistories.add(savedHistory);
-                    
-                    businessLogger.info("[DRAW_SUCCESS] memberId={}, boardId={}, grade={}, itemName={}",
-                            memberId, boardId, item.getGrade(), item.getName());
-
-                    // WebSocket 실시간 티커 전송 (A상~C상, Last One)
-                    String grade = item.getGrade().toUpperCase();
-                    if (grade.startsWith("A") || grade.startsWith("B") || grade.startsWith("C") || grade.contains("LAST")) {
-                        RecentDrawResponse tickerDto = RecentDrawResponse.builder()
-                                .maskedNickname(maskNickname(member.getNickname()))
-                                .boardTitle(board.getTitle())
-                                .grade(item.getGrade())
-                                .itemName(item.getName())
-                                .createdAt(LocalDateTime.now())
-                                .build();
-                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                            @Override public void afterCommit() {
-                                try { messagingTemplate.convertAndSend("/topic/draw-ticker", tickerDto); }
-                                catch (RuntimeException e) { businessLogger.warn("당첨 티커 전송 실패. boardId={}", boardId); }
-                            }
-                        });
-                    }
-
                     break;
                 }
             }
         }
-        
+        if (LastPrizeRules.remainingTickets(allItems) == 0) {
+            allItems.stream().filter(item -> LastPrizeRules.isLastGrade(item.getGrade()) && item.getRemainQty() > 0)
+                    .findFirst().ifPresent(item -> {
+                        item.decreaseRemainQty();
+                        winningItems.add(item);
+                    });
+        }
+
+        for (KujiItem item : winningItems) {
+            DrawHistory history = DrawHistory.builder().status(DrawStatus.DRAWN).member(member)
+                    .kujiBoard(board).kujiItem(item).build();
+            drawHistories.add(drawHistoryRepository.save(history));
+            businessLogger.info("[DRAW_SUCCESS] memberId={}, boardId={}, grade={}, itemName={}",
+                    memberId, boardId, item.getGrade(), item.getName());
+
+            String grade = item.getGrade().toUpperCase(java.util.Locale.ROOT);
+            if (grade.startsWith("A") || grade.startsWith("B") || grade.startsWith("C") || LastPrizeRules.isLastGrade(grade)) {
+                RecentDrawResponse tickerDto = RecentDrawResponse.builder()
+                        .maskedNickname(maskNickname(member.getNickname())).boardTitle(board.getTitle())
+                        .grade(item.getGrade()).itemName(item.getName()).createdAt(LocalDateTime.now()).build();
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCommit() {
+                        try { messagingTemplate.convertAndSend("/topic/draw-ticker", tickerDto); }
+                        catch (RuntimeException e) { businessLogger.warn("당첨 티커 전송 실패. boardId={}", boardId); }
+                    }
+                });
+            }
+        }
+
         DrawHistory firstHistory = drawHistories.isEmpty() ? null : drawHistories.get(0);
 
         // 3-1. 포인트 결제인 경우 '사용' 내역 기록
@@ -365,6 +358,8 @@ public class KujiDrawService {
             }
         }
 
+        settlementService.recordSale(member, board, savedPayment, count, totalRequiredAmount, usedPoints, drawHistories);
+
         // 5. 결과 반환
         List<KujiItemResponse> resultDtos = new java.util.ArrayList<>();
         for (DrawHistory history : drawHistories) {
@@ -376,29 +371,16 @@ public class KujiDrawService {
             resultDtos.add(dto);
         }
 
-        int finalTotalRemain = allItems.stream()
-                .mapToInt(KujiItem::getRemainQty)
-                .sum();
+        int finalTotalRemain = Math.toIntExact(LastPrizeRules.remainingTickets(allItems));
 
-        // 6. 당첨 알림 발송
-        //    FCM 외부 호출은 커밋 이후로 지연: 트랜잭션(및 보드 락) 점유 시간을 줄이고,
-        //    롤백됐는데 당첨 푸시가 나가는 오발송도 방지한다.
+        // 당첨 알림은 구매 트랜잭션에 저장하고 기기 푸시만 알림 서비스가 커밋 후 전송합니다.
         if (!winningItems.isEmpty()) {
             String mainPrizeName = winningItems.get(0).getName();
             String winBody = winningItems.size() > 1
                     ? String.format("축하합니다! [%s] 외 %d건의 상품에 당첨되셨습니다.", mainPrizeName, winningItems.size() - 1)
                     : String.format("축하합니다! [%s] 상품에 당첨되셨습니다.", mainPrizeName);
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        notificationService.sendNotification(member, "쿠지 당첨을 축하합니다!", winBody,
-                                NotificationType.SYSTEM, "WINNING", boardId.toString());
-                    } catch (RuntimeException e) {
-                        businessLogger.warn("당첨 알림 전송 실패. boardId={}", boardId);
-                    }
-                }
-            });
+            notificationService.sendNotification(member, "쿠지 당첨을 축하합니다!", winBody,
+                    NotificationType.SYSTEM, "WINNING", boardId.toString());
         }
 
         // 7. 마감임박 알림 발송 트리거 (잔여 수량이 5개 이하로 떨어졌을 때, 그리고 당첨 전에는 5개 초과였을 때 딱 한 번만 발송)

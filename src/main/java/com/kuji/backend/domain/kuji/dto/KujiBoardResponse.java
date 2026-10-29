@@ -19,6 +19,8 @@ public class KujiBoardResponse {
     private Integer totalCount;
     private Integer remainCount;
     private Integer gradeCount; // 등급 종류 수 (예: A~G상 총 7종)
+    private Boolean hasLastPrize;
+    private Boolean lastPrizeAvailable;
     private Boolean isWished; // 찜 여부 추가
     private List<KujiBoardImageResponse> images;
 

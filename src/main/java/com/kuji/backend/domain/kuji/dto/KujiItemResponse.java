@@ -16,6 +16,7 @@ import java.util.List;
 public class KujiItemResponse {
     private Long id;
     private String grade;
+    private Boolean lastPrize;
     private String name;
     private Integer totalQty;
     private Integer remainQty;

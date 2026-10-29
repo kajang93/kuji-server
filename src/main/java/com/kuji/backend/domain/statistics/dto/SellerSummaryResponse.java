@@ -1,15 +1,31 @@
+// 배송 완료 거래의 실제 정산 대상액과 대기 및 과거 미대사 금액을 구분합니다.
 package com.kuji.backend.domain.statistics.dto;
 
 import lombok.Builder;
 
 @Builder
 public record SellerSummaryResponse(
-        Long totalSalesPoints,         // 총 발생 매출(포인트)
-        Long estimatedSettlement,      // 수수료 공제 후 예상 정산금
-        Integer appliedFeeRate,        // 적용된 수수료율 (10 또는 0)
-        boolean isFirstMonthFree,      // 첫 달 무료 적용 여부
-        Long pendingShippingCount,     // 배송 대기 건수
-        Long totalRegisteredProducts,  // 등록된 상품 수
-        Long totalWishlistCount        // 받은 찜 횟수
-) {
-}
+        Long totalSalesPoints,
+        Long confirmedSalesAmount,
+        Long pendingSalesAmount,
+        Long platformFeeAmount,
+        Long pendingFeeAmount,
+        Long refundedAmount,
+        Long confirmedSettlementAmount,
+        Long pendingSettlementAmount,
+        Long paidSettlementAmount,
+        Long unpaidSettlementAmount,
+        Long refundReviewHoldAmount,
+        Long legacySalesAmount,
+        Long legacyReviewCount,
+        Long legacyUnreconciledCount,
+        Long testSalesAmount,
+        Long unknownSalesAmount,
+        boolean settlementReviewRequired,
+        String settlementNotice,
+        Integer appliedFeeRate,
+        boolean isFirstMonthFree,
+        Long pendingShippingCount,
+        Long totalRegisteredProducts,
+        Long totalWishlistCount
+) {}

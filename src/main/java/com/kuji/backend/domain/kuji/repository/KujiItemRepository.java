@@ -34,12 +34,19 @@ public interface KujiItemRepository extends JpaRepository<KujiItem, Long> {
         Long getTotalQty();
         Long getRemainQty();
         Long getGradeCount();
+        Long getLastPrizeQty();
+        Long getLastPrizeRemainQty();
     }
 
+    String LAST_GRADE_MATCH = "UPPER(REPLACE(REPLACE(REPLACE(TRIM(i.grade), ' ', ''), '-', ''), '_', '')) " +
+            "IN ('LAST', 'LASTONE', 'LAST상', '라스트', '라스트상', '라스트원')";
+
     @org.springframework.data.jpa.repository.Query("SELECT i.kujiBoard.id AS boardId, " +
-            "COALESCE(SUM(i.totalQty), 0) AS totalQty, " +
-            "COALESCE(SUM(i.remainQty), 0) AS remainQty, " +
-            "COUNT(i) AS gradeCount " +
+            "COALESCE(SUM(CASE WHEN " + LAST_GRADE_MATCH + " THEN 0 ELSE i.totalQty END), 0) AS totalQty, " +
+            "COALESCE(SUM(CASE WHEN " + LAST_GRADE_MATCH + " THEN 0 ELSE i.remainQty END), 0) AS remainQty, " +
+            "COUNT(i) AS gradeCount, " +
+            "COALESCE(SUM(CASE WHEN " + LAST_GRADE_MATCH + " THEN i.totalQty ELSE 0 END), 0) AS lastPrizeQty, " +
+            "COALESCE(SUM(CASE WHEN " + LAST_GRADE_MATCH + " THEN i.remainQty ELSE 0 END), 0) AS lastPrizeRemainQty " +
             "FROM KujiItem i WHERE i.kujiBoard.id IN :boardIds GROUP BY i.kujiBoard.id")
     List<BoardStockSummary> summarizeByBoardIds(@org.springframework.data.repository.query.Param("boardIds") List<Long> boardIds);
 }
