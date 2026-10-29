@@ -40,6 +40,7 @@ public class MemberService {
     private final S3Service s3Service;
     private final SmsVerificationService smsVerificationService;
     private final com.kuji.backend.domain.member.repository.RefreshTokenRepository refreshTokenRepository;
+    private final com.kuji.backend.domain.notification.repository.DeviceTokenRepository deviceTokenRepository;
 
     private com.kuji.backend.domain.member.dto.LoginResponse generateLoginResponse(Member member, boolean isNewUser) {
         String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
@@ -139,6 +140,8 @@ public class MemberService {
                 throw new IllegalArgumentException("이미 연동된 소셜 계정입니다.");
             }
         }
+
+        smsVerificationService.claimSignupVerification(request.phoneNumber(), request.phoneVerificationToken());
 
         // 💡 비밀번호가 있으면 암호화, 소셜 가입이라 없으면 null 처리
         String encodedPassword = (request.password() != null)
@@ -586,6 +589,17 @@ public class MemberService {
      */
     @Transactional
     public void logout(Long memberId) {
+        logout(memberId, null);
+    }
+
+    /** 현재 기기의 푸시 연결과 갱신 세션을 한 거래에서 함께 폐기합니다. */
+    @Transactional
+    public void logout(Long memberId, String deviceId) {
+        if (deviceId != null && !deviceId.isBlank()) {
+            if (deviceId.length() > 100) throw new IllegalArgumentException("기기 식별자를 확인해 주세요.");
+            deviceTokenRepository.lockIdentity("device:" + deviceId);
+            deviceTokenRepository.deleteByDeviceIdAndMemberId(deviceId, memberId);
+        }
         refreshTokenRepository.deleteByMemberId(memberId);
     }
 }

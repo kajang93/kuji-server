@@ -122,9 +122,10 @@ public class MemberController {
      * 로그아웃 (쿠키 삭제 및 DB 리프레시 토큰 삭제)
      */
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal Long memberId) {
+    public ResponseEntity<String> logout(@AuthenticationPrincipal Long memberId,
+                                         @RequestBody(required = false) java.util.Map<String, String> request) {
         if (memberId != null) {
-            memberService.logout(memberId);
+            memberService.logout(memberId, request == null ? null : request.get("deviceId"));
         }
         ResponseCookie deleteCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true).secure(true).sameSite("None").path("/").maxAge(0).build();
@@ -188,19 +189,22 @@ public class MemberController {
      * 7. 문자 인증번호 검증 API (회원가입 용)
      */
     @PostMapping("/verify-sms")
-    public ResponseEntity<String> verifySms(@RequestBody java.util.Map<String, String> request) {
+    public ResponseEntity<?> verifySms(@RequestBody java.util.Map<String, String> request) {
         String phoneNumber = request.get("phoneNumber");
         String code = request.get("code");
         if (phoneNumber == null || code == null) {
             return ResponseEntity.badRequest().body("전화번호와 인증번호가 필요합니다.");
         }
         
-        boolean isValid = smsVerificationService.verifyCode(phoneNumber, code);
-        if (isValid) {
-            return ResponseEntity.ok("인증되었습니다.");
-        } else {
-            return ResponseEntity.badRequest().body("인증번호가 일치하지 않거나 만료되었습니다.");
+        String purpose = request.get("purpose");
+        if ("SIGNUP".equals(purpose)) {
+            return ResponseEntity.ok(smsVerificationService.verifySignupCode(phoneNumber, code));
         }
+        if (purpose != null && !purpose.isBlank()) {
+            return ResponseEntity.badRequest().body("인증 요청 목적을 확인해 주세요.");
+        }
+        smsVerificationService.checkVerificationCode(phoneNumber, code);
+        return ResponseEntity.ok("인증되었습니다.");
     }
 
     /**

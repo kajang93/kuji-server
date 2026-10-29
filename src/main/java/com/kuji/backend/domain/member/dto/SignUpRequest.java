@@ -21,7 +21,15 @@ public record SignUpRequest(
         String businessAddress,
         Boolean isTermsAgreed,
         Boolean isPrivacyAgreed,
-        Boolean isMarketingAgreed) {
+        Boolean isMarketingAgreed,
+        String phoneVerificationToken) {
+    public SignUpRequest(String email, String password, String nickname, String phoneNumber, LocalDate birthDate,
+                         RoleType role, String businessNumber, String companyName, String ceoName, String businessAddress,
+                         Boolean isTermsAgreed, Boolean isPrivacyAgreed, Boolean isMarketingAgreed) {
+        this(email, password, nickname, phoneNumber, birthDate, role, businessNumber, companyName, ceoName,
+                businessAddress, isTermsAgreed, isPrivacyAgreed, isMarketingAgreed, null);
+    }
+
     // 💡 실무 팁: Service 계층을 깔끔하게 유지하기 위해 DTO -> Entity 변환 메서드를 DTO 안에 둡니다.
     public Member toEntity(SocialType socialType, String socialId, String encodedPassword) {
         return Member.builder()

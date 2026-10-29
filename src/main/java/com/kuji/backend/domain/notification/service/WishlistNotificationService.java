@@ -31,7 +31,7 @@ public class WishlistNotificationService {
      * - 쿠지판이 ACTIVE 상태로 전환될 때 관리자가 호출
      */
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void notifyWishlistOpen(KujiBoard board) {
         List<Wishlist> wishlists = wishlistRepository.findAllByKujiBoard(board);
         log.info("[관심상품 오픈 알림] 대상 {}명 발송 시작. boardId={}", wishlists.size(), board.getId());
@@ -56,7 +56,7 @@ public class WishlistNotificationService {
      * - 관리자가 상품 재입고 처리 시 호출
      */
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void notifyRestock(KujiBoard board) {
         List<Wishlist> wishlists = wishlistRepository.findAllByKujiBoard(board);
         log.info("[재입고 알림] 대상 {}명 발송 시작. boardId={}", wishlists.size(), board.getId());
@@ -81,7 +81,7 @@ public class WishlistNotificationService {
      * - 잔여 수량이 특정 임계치 이하로 내려갈 때 관리자 또는 스케줄러가 호출
      */
     @Async
-    @Transactional(readOnly = true)
+    @Transactional
     public void notifyClosingSoon(KujiBoard board, int remainQty) {
         List<Wishlist> wishlists = wishlistRepository.findAllByKujiBoard(board);
         log.info("[마감임박 알림] 대상 {}명 발송 시작. boardId={}, 잔여수량={}", wishlists.size(), board.getId(), remainQty);

@@ -13,9 +13,10 @@ public record NotificationSettingResponse(
         boolean marketingOpen,
         boolean marketingRestock,
         boolean marketingEvent,
-        boolean nightPush
+        boolean nightPush,
+        boolean marketingAgreed
 ) {
-    public static NotificationSettingResponse from(NotificationSetting setting) {
+    public static NotificationSettingResponse from(NotificationSetting setting, boolean marketingAgreed) {
         return new NotificationSettingResponse(
                 setting.isPushEnabled(),
                 setting.isKakaoWinning(),
@@ -24,15 +25,16 @@ public record NotificationSettingResponse(
                 setting.isKakaoBizOrder(),
                 setting.isKakaoBizCancel(),
                 setting.isKakaoBizInquiry(),
-                setting.isMarketingOpen(),
-                setting.isMarketingRestock(),
-                setting.isMarketingEvent(),
-                setting.isNightPush()
+                marketingAgreed && setting.isMarketingOpen(),
+                marketingAgreed && setting.isMarketingRestock(),
+                marketingAgreed && setting.isMarketingEvent(),
+                marketingAgreed && setting.isNightPush(),
+                marketingAgreed
         );
     }
 
     /** 설정이 없는 신규 유저에게 반환할 기본값 */
-    public static NotificationSettingResponse defaultValue() {
-        return new NotificationSettingResponse(true, true, true, true, true, true, true, true, true, true, false);
+    public static NotificationSettingResponse defaultValue(boolean marketingAgreed) {
+        return new NotificationSettingResponse(true, true, true, true, true, true, true, false, false, false, false, marketingAgreed);
     }
 }

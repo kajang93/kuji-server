@@ -19,11 +19,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalTime;
-import java.util.ArrayList;
+import java.time.ZoneId;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,6 +39,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationSettingRepository settingRepository;
     private final MemberRepository memberRepository;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * 기기 토큰 등록 또는 갱신
@@ -43,7 +48,17 @@ public class NotificationService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
 
-        deviceTokenRepository.findByDeviceIdAndMemberId(request.getDeviceId(), memberId)
+        String deviceId = request.getDeviceId();
+        String token = request.getToken();
+        if (deviceId == null || deviceId.isBlank() || deviceId.length() > 100
+                || token == null || token.isBlank() || token.length() > 500) {
+            throw new IllegalArgumentException("기기 알림 정보를 확인해 주세요.");
+        }
+        // 이전 계정에 남은 같은 기기 또는 같은 푸시 주소 연결을 원자적으로 교체합니다.
+        java.util.stream.Stream.of("device:" + deviceId, "token:" + token).sorted()
+                .forEach(deviceTokenRepository::lockIdentity);
+        deviceTokenRepository.deleteOtherBindings(deviceId, token, memberId);
+        deviceTokenRepository.findByDeviceIdAndMemberId(deviceId, memberId)
                 .ifPresentOrElse(
                         deviceToken -> deviceToken.updateToken(request.getToken(), request.getPlatform()),
                         () -> {
@@ -66,17 +81,18 @@ public class NotificationService {
     }
 
     /**
-     * 알림 발송 (FCM + DB 저장) - subType 없는 단순 발송
+     * 거래 알림은 앱 안에 기록하고, 기기 푸시는 거래 커밋 후 발송합니다.
      */
     public void sendNotification(Member receiver, String title, String body, NotificationType type, String targetId) {
         sendNotification(receiver, title, body, type, null, targetId);
     }
 
-    /**
-     * 알림 발송 (FCM + DB 저장) - subType 포함 (수신 설정 필터링)
-     */
     public void sendNotification(Member receiver, String title, String body, NotificationType type, String subType, String targetId) {
-        // 1. DB에 인앱 알림(앱 내부 종 모양 아이콘 리스트)은 무조건 저장합니다!
+        NotificationSetting setting = settingRepository.findByMember(receiver).orElse(null);
+        if (isMarketing(type, subType) && !hasMarketingConsent(receiver, setting, subType)) {
+            return;
+        }
+
         Notification notification = Notification.builder()
                 .member(receiver)
                 .title(title)
@@ -88,114 +104,107 @@ public class NotificationService {
         log.info("[인앱 알림 저장] notificationId={}, memberId={}, type={}, subType={}",
                 notification.getId(), receiver.getId(), type, subType);
 
-        // 2. 수신 설정 필터링 (스마트폰 외부 푸시/카톡 알림을 꺼둔 경우 여기서 스킵)
-        if (!isNotificationAllowed(receiver, type, subType)) {
-            log.info("[외부 푸시 발송 스킵] 수신 설정 OFF. DB에만 저장됨. memberId={}, type={}, subType={}", receiver.getId(), type, subType);
-            return;
-        }
-
-        if (FirebaseApp.getApps().isEmpty()) {
-            log.warn("[외부 푸시 발송 스킵] Firebase Admin SDK가 초기화되지 않았습니다. DB에만 저장됨. memberId={}, type={}, subType={}",
-                    receiver.getId(), type, subType);
-            return;
-        }
-
-        // 3. 해당 유저의 유효한 모든 디바이스 토큰 조회
-        List<DeviceToken> deviceTokens = deviceTokenRepository.findAllByMember(receiver);
-        if (deviceTokens.isEmpty()) {
-            log.info("발송 가능한 기기 토큰이 없습니다. memberId={}", receiver.getId());
-            return;
-        }
-
-        List<String> tokens = deviceTokens.stream()
-                .map(DeviceToken::getToken)
-                .distinct()
-                .collect(Collectors.toList());
-
-        // 4. FCM 메시지 구성
-        MulticastMessage message = MulticastMessage.builder()
-                .putData("title", title)
-                .putData("body", body)
-                .putData("type", type.name())
-                .putData("subType", subType != null ? subType : "")
-                .putData("targetId", targetId != null ? targetId : "")
-                .addAllTokens(tokens)
-                .setNotification(com.google.firebase.messaging.Notification.builder()
-                        .setTitle(title)
-                        .setBody(body)
-                        .build())
-                .build();
-
-        // 5. FCM 발송
-        try {
-            BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
-            log.info("[FCM 푸시 발송 결과] memberId={}, type={}, subType={}, tokenCount={}, successCount={}, failureCount={}",
-                    receiver.getId(), type, subType, tokens.size(), response.getSuccessCount(), response.getFailureCount());
-
-            // 6. 유효하지 않은 토큰(앱 삭제 등) 자동 정리
-            if (response.getFailureCount() > 0) {
-                List<SendResponse> responses = response.getResponses();
-                List<String> failedTokens = new ArrayList<>();
-                for (int i = 0; i < responses.size(); i++) {
-                    if (!responses.get(i).isSuccessful()) {
-                        String errorCode = responses.get(i).getException().getMessagingErrorCode().name();
-                        if ("UNREGISTERED".equals(errorCode) || "INVALID_ARGUMENT".equals(errorCode)) {
-                            failedTokens.add(tokens.get(i));
-                        }
-                        log.warn("[FCM 푸시 개별 실패] memberId={}, tokenIndex={}, errorCode={}, message={}",
-                                receiver.getId(), i, errorCode, responses.get(i).getException().getMessage());
-                    }
+        Long receiverId = receiver.getId();
+        Runnable delivery = () -> deliverAfterCommit(receiverId, title, body, type, subType, targetId);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    delivery.run();
                 }
-                failedTokens.forEach(deviceTokenRepository::deleteByToken);
-                log.info("유효하지 않은 토큰 {}개를 삭제했습니다.", failedTokens.size());
-            }
-        } catch (FirebaseMessagingException e) {
-            log.error("FCM 푸시 알림 발송 실패: {}", e.getMessage());
-        } catch (RuntimeException e) {
-            log.error("FCM 푸시 알림 발송 중 예상치 못한 오류가 발생했습니다. DB 알림은 유지됩니다. memberId={}, reason={}",
-                    receiver.getId(), e.getMessage());
+            });
+        } else {
+            delivery.run();
         }
     }
 
-    /**
-     * 수신 설정 허용 여부 판별
-     * - 설정이 없는 신규 유저는 기본 허용(true) 처리
-     */
-    private boolean isNotificationAllowed(Member receiver, NotificationType type, String subType) {
+    private void deliverAfterCommit(Long receiverId, String title, String body, NotificationType type, String subType, String targetId) {
+        try {
+            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.executeWithoutResult(status -> memberRepository.findById(receiverId)
+                    .ifPresent(receiver -> sendDevicePush(receiver, title, body, type, subType, targetId)));
+        } catch (RuntimeException e) {
+            // 푸시 실패가 이미 완료된 결제·배송 처리 결과를 바꾸지 않게 합니다.
+            log.error("[FCM 푸시 처리 실패] memberId={}, type={}, subType={}, errorType={}",
+                    receiverId, type, subType, e.getClass().getSimpleName());
+        }
+    }
+
+    private void sendDevicePush(Member receiver, String title, String body, NotificationType type, String subType, String targetId) {
         NotificationSetting setting = settingRepository.findByMember(receiver).orElse(null);
+        if (!allowsPush(receiver, setting, type, subType, LocalTime.now(ZoneId.of("Asia/Seoul")))) {
+            return;
+        }
+        if (FirebaseApp.getApps().isEmpty()) {
+            log.warn("[FCM 푸시 미발송] Firebase 설정 없음. memberId={}", receiver.getId());
+            return;
+        }
 
-        // 설정 없으면 기본 허용
-        if (setting == null) return true;
-
-        // 전체 푸시 OFF
-        if (!setting.isPushEnabled()) return false;
-
-        // 야간 푸시 체크 (오후 10시 ~ 오전 8시)
-        if (!setting.isNightPush()) {
-            LocalTime now = LocalTime.now();
-            if (now.isAfter(LocalTime.of(22, 0)) || now.isBefore(LocalTime.of(8, 0))) {
-                // 야간 시간대에 마케팅성 알림은 차단
-                if (type == NotificationType.SYSTEM && subType != null &&
-                        (subType.equals("WISHLIST_OPEN") || subType.equals("RESTOCK") || subType.equals("CLOSING_SOON"))) {
-                    return false;
+        List<String> tokens = deviceTokenRepository.findAllByMember(receiver).stream()
+                .map(DeviceToken::getToken).distinct().toList();
+        for (int offset = 0; offset < tokens.size(); offset += 500) {
+            List<String> batch = tokens.subList(offset, Math.min(offset + 500, tokens.size()));
+            MulticastMessage message = MulticastMessage.builder()
+                    .putData("title", title)
+                    .putData("body", body)
+                    .putData("type", type.name())
+                    .putData("subType", subType != null ? subType : "")
+                    .putData("targetId", targetId != null ? targetId : "")
+                    .addAllTokens(batch)
+                    .setNotification(com.google.firebase.messaging.Notification.builder()
+                            .setTitle(title).setBody(body).build())
+                    .build();
+            try {
+                BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
+                log.info("[FCM 푸시 결과] memberId={}, type={}, subType={}, tokenCount={}, successCount={}, failureCount={}",
+                        receiver.getId(), type, subType, batch.size(), response.getSuccessCount(), response.getFailureCount());
+                List<SendResponse> responses = response.getResponses();
+                for (int i = 0; i < responses.size(); i++) {
+                    if (!responses.get(i).isSuccessful() && responses.get(i).getException() != null) {
+                        MessagingErrorCode code = responses.get(i).getException().getMessagingErrorCode();
+                        if (code == MessagingErrorCode.UNREGISTERED) {
+                            deviceTokenRepository.deleteByToken(batch.get(i));
+                        }
+                        log.warn("[FCM 개별 실패] memberId={}, errorCode={}", receiver.getId(), code);
+                    }
                 }
+            } catch (FirebaseMessagingException | RuntimeException e) {
+                log.error("[FCM 발송 실패] memberId={}, type={}, errorType={}",
+                        receiver.getId(), type, e.getClass().getSimpleName());
             }
         }
+    }
 
-        // 세부 타입별 허용 체크
-        if (type == NotificationType.SHIPPING) {
-            return setting.isKakaoDelivery();
-        }
-        if (type == NotificationType.COMMENT && "INQUIRY".equals(subType)) {
-            return setting.isKakaoInquiry();
-        }
-        if (type == NotificationType.SYSTEM) {
-            if ("WINNING".equals(subType)) return setting.isKakaoWinning();
-            if ("WISHLIST_OPEN".equals(subType)) return setting.isMarketingOpen();
-            if ("RESTOCK".equals(subType)) return setting.isMarketingRestock();
-            if ("CLOSING_SOON".equals(subType)) return setting.isMarketingEvent();
-        }
+    static boolean isMarketing(NotificationType type, String subType) {
+        return type == NotificationType.SYSTEM && ("WISHLIST_OPEN".equals(subType)
+                || "RESTOCK".equals(subType) || "CLOSING_SOON".equals(subType));
+    }
 
+    private static boolean hasMarketingConsent(Member receiver, NotificationSetting setting, String subType) {
+        if (!Boolean.TRUE.equals(receiver.getIsMarketingAgreed()) || setting == null) return false;
+        return switch (subType) {
+            case "WISHLIST_OPEN" -> setting.isMarketingOpen();
+            case "RESTOCK" -> setting.isMarketingRestock();
+            case "CLOSING_SOON" -> setting.isMarketingEvent();
+            default -> false;
+        };
+    }
+
+    static boolean allowsPush(Member receiver, NotificationSetting setting, NotificationType type, String subType, LocalTime now) {
+        if (setting != null && !setting.isPushEnabled()) return false;
+        if (isMarketing(type, subType)) {
+            if (!hasMarketingConsent(receiver, setting, subType)) return false;
+            boolean night = !now.isBefore(LocalTime.of(21, 0)) || now.isBefore(LocalTime.of(8, 0));
+            return !night || setting.isNightPush();
+        }
+        if (setting == null) return true;
+        if ("BIZ_ORDER".equals(subType)) return setting.isKakaoBizOrder();
+        if ("BIZ_CANCEL".equals(subType)) return setting.isKakaoBizCancel();
+        if ("BIZ_INQUIRY".equals(subType)) return setting.isKakaoBizInquiry();
+        if (type == NotificationType.SHIPPING) return setting.isKakaoDelivery();
+        if (type == NotificationType.COMMENT && "INQUIRY".equals(subType)) return setting.isKakaoInquiry();
+        if (type == NotificationType.SYSTEM && "WINNING".equals(subType)) return setting.isKakaoWinning();
         return true;
     }
 

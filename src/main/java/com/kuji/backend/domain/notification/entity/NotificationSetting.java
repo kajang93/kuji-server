@@ -26,7 +26,7 @@ public class NotificationSetting extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean pushEnabled = true;
 
-    // 카카오 알림톡 유형 (당첨, 배송, 문의 답변)
+    // 거래 푸시 유형 (기존 API·DB 필드명은 호환성을 위해 유지)
     @Column(nullable = false)
     private boolean kakaoWinning = true;
 
@@ -36,7 +36,7 @@ public class NotificationSetting extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean kakaoInquiry = true;
 
-    // 사업자 전용 알림톡 유형 (주문, 취소, 고객문의)
+    // 사업자 업무 푸시 유형 (주문, 취소, 고객문의)
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean kakaoBizOrder = true;
 
@@ -48,13 +48,13 @@ public class NotificationSetting extends BaseTimeEntity {
 
     // 마케팅 알림 유형 (관심상품 오픈, 재입고, 이벤트/마감임박)
     @Column(nullable = false)
-    private boolean marketingOpen = true;
+    private boolean marketingOpen = false;
 
     @Column(nullable = false)
-    private boolean marketingRestock = true;
+    private boolean marketingRestock = false;
 
     @Column(nullable = false)
-    private boolean marketingEvent = true;
+    private boolean marketingEvent = false;
 
     // 야간 푸시 수신 여부 (기본 비활성화)
     @Column(nullable = false)
