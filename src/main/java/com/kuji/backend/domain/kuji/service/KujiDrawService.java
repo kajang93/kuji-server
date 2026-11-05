@@ -30,8 +30,6 @@ import com.kuji.backend.domain.payment.service.PaymentRecoveryService;
 import com.kuji.backend.domain.settlement.service.SettlementService;
 import com.kuji.backend.domain.member.repository.MemberRepository;
 import com.kuji.backend.domain.member.repository.PointHistoryRepository;
-import com.kuji.backend.domain.notification.entity.NotificationType;
-import com.kuji.backend.domain.notification.service.NotificationService;
 import com.kuji.backend.domain.notification.service.WishlistNotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -63,7 +61,6 @@ public class KujiDrawService {
     private final MemberRepository memberRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final KujiItemService kujiItemService;
-    private final NotificationService notificationService;
     private final WishlistNotificationService wishlistNotificationService;
     private final PaymentRecoveryService paymentRecoveryService;
     private final SettlementService settlementService;
@@ -372,16 +369,6 @@ public class KujiDrawService {
         }
 
         int finalTotalRemain = Math.toIntExact(LastPrizeRules.remainingTickets(allItems));
-
-        // 당첨 알림은 구매 트랜잭션에 저장하고 기기 푸시만 알림 서비스가 커밋 후 전송합니다.
-        if (!winningItems.isEmpty()) {
-            String mainPrizeName = winningItems.get(0).getName();
-            String winBody = winningItems.size() > 1
-                    ? String.format("축하합니다! [%s] 외 %d건의 상품에 당첨되셨습니다.", mainPrizeName, winningItems.size() - 1)
-                    : String.format("축하합니다! [%s] 상품에 당첨되셨습니다.", mainPrizeName);
-            notificationService.sendNotification(member, "쿠지 당첨을 축하합니다!", winBody,
-                    NotificationType.SYSTEM, "WINNING", boardId.toString());
-        }
 
         // 7. 마감임박 알림 발송 트리거 (잔여 수량이 5개 이하로 떨어졌을 때, 그리고 당첨 전에는 5개 초과였을 때 딱 한 번만 발송)
         int initialTotalRemain = finalTotalRemain + count;

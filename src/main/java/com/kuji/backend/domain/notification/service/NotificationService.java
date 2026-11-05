@@ -88,6 +88,9 @@ public class NotificationService {
     }
 
     public void sendNotification(Member receiver, String title, String body, NotificationType type, String subType, String targetId) {
+        // 개봉 전 당첨 상품을 노출하는 알림은 인앱 저장과 기기 발송 모두 제외합니다.
+        if ("WINNING".equals(subType)) return;
+
         NotificationSetting setting = settingRepository.findByMember(receiver).orElse(null);
         if (isMarketing(type, subType) && !hasMarketingConsent(receiver, setting, subType)) {
             return;
@@ -192,6 +195,7 @@ public class NotificationService {
     }
 
     static boolean allowsPush(Member receiver, NotificationSetting setting, NotificationType type, String subType, LocalTime now) {
+        if ("WINNING".equals(subType)) return false;
         if (setting != null && !setting.isPushEnabled()) return false;
         if (isMarketing(type, subType)) {
             if (!hasMarketingConsent(receiver, setting, subType)) return false;
@@ -204,7 +208,6 @@ public class NotificationService {
         if ("BIZ_INQUIRY".equals(subType)) return setting.isKakaoBizInquiry();
         if (type == NotificationType.SHIPPING) return setting.isKakaoDelivery();
         if (type == NotificationType.COMMENT && "INQUIRY".equals(subType)) return setting.isKakaoInquiry();
-        if (type == NotificationType.SYSTEM && "WINNING".equals(subType)) return setting.isKakaoWinning();
         return true;
     }
 
