@@ -2,8 +2,9 @@
 package com.kuji.backend.domain.payment.controller;
 
 import com.kuji.backend.domain.payment.service.PaymentRecoveryService;
+import com.kuji.backend.domain.payment.dto.PaymentResultResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,8 +13,12 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentStatusController {
     private final PaymentRecoveryService recovery;
     @GetMapping("/{orderId}/status")
-    public PaymentStatusResponse status(Authentication authentication, @PathVariable String orderId) {
-        return new PaymentStatusResponse(recovery.getStatus((Long) authentication.getPrincipal(), orderId));
+    public PaymentStatusResponse status(@AuthenticationPrincipal Long memberId, @PathVariable String orderId) {
+        return new PaymentStatusResponse(recovery.getStatus(memberId, orderId));
+    }
+    @GetMapping("/{orderId}/result")
+    public PaymentResultResponse result(@AuthenticationPrincipal Long memberId, @PathVariable String orderId) {
+        return recovery.getResult(memberId, orderId);
     }
     public record PaymentStatusResponse(String status) {}
 }

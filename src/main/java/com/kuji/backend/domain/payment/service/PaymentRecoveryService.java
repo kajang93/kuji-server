@@ -2,8 +2,13 @@
 package com.kuji.backend.domain.payment.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kuji.backend.domain.kuji.dto.KujiDrawResponse;
+import com.kuji.backend.domain.kuji.dto.KujiItemResponse;
 import com.kuji.backend.domain.member.repository.MemberRepository;
+import com.kuji.backend.domain.payment.dto.ChargeConfirmResponse;
+import com.kuji.backend.domain.payment.dto.PaymentResultResponse;
 import com.kuji.backend.domain.payment.entity.PaymentRecoveryAttempt;
 import com.kuji.backend.domain.payment.entity.PaymentSession;
 import com.kuji.backend.domain.payment.enums.SessionStatus;
@@ -14,11 +19,16 @@ import com.kuji.backend.global.infra.toss.TossPaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -108,6 +118,64 @@ public class PaymentRecoveryService {
             };
         }
         return session.getStatus() == SessionStatus.PENDING && !session.getExpiresAt().isBefore(LocalDateTime.now()) ? "PENDING" : "FAILED";
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentResultResponse getResult(Long memberId, String orderId) {
+        if (memberId == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        PaymentSession session = sessions.findByOrderId(orderId)
+                .filter(s -> memberId.equals(s.getMember().getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "결제 정보를 확인할 수 없습니다."));
+        if (session.getStatus() != SessionStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "결제가 아직 완료되지 않았습니다.");
+        }
+        PaymentRecoveryAttempt attempt = attempts.findByOrderId(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "저장된 결제 결과가 없습니다. 결제 내역을 확인해주세요."));
+        if (attempt.getState() != PaymentRecoveryAttempt.State.COMPLETED
+                || !Objects.equals(attempt.getOrderId(), session.getOrderId())
+                || !memberId.equals(attempt.getMemberId()) || session.getAmount() == null
+                || !session.getAmount().equals(attempt.getAmount())
+                || session.getSessionType() == null || session.getSessionType() != attempt.getSessionType()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "완료된 결제 정보를 확인할 수 없습니다.");
+        }
+        if (attempt.getResultJson() == null || attempt.getResultJson().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "저장된 결제 결과가 없습니다. 결제 내역을 확인해주세요.");
+        }
+        boolean kuji = session.getSessionType() == SessionType.KUJI_DRAW;
+        if (kuji && (session.getBoard() == null || session.getCount() == null || session.getCount() < 1)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "완료된 결제 정보를 확인할 수 없습니다.");
+        }
+        return new PaymentResultResponse(session.getSessionType(), kuji ? session.getBoard().getId() : null,
+                kuji ? session.getCount() : null, readPublicResult(attempt.getResultJson(), session.getSessionType()));
+    }
+
+    private JsonNode readPublicResult(String resultJson, SessionType type) {
+        try {
+            JsonNode stored = mapper.readTree(resultJson);
+            if (stored == null || !stored.isObject()) throw new IllegalArgumentException();
+            // 저장 기록에 다른 필드가 있더라도 기존 공개 응답 필드만 다시 구성합니다.
+            if (type == SessionType.KUJI_DRAW) {
+                if (!stored.path("results").isArray()) throw new IllegalArgumentException();
+                List<KujiItemResponse> results = new ArrayList<>();
+                for (JsonNode item : stored.path("results")) {
+                    if (!item.isObject()) throw new IllegalArgumentException();
+                    results.add(mapper.readerFor(KujiItemResponse.class)
+                            .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(item));
+                }
+                return mapper.valueToTree(KujiDrawResponse.builder().results(results)
+                        .totalRemaining(readResultInteger(stored, "totalRemaining")).build());
+            }
+            return mapper.valueToTree(new ChargeConfirmResponse(readResultInteger(stored, "pointsCharged"),
+                    readResultInteger(stored, "bonusPoints"), readResultInteger(stored, "totalPoints")));
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "저장된 결제 결과를 확인할 수 없습니다. 결제 내역을 확인해주세요.");
+        }
+    }
+
+    private Integer readResultInteger(JsonNode result, String field) {
+        JsonNode value = result.path(field);
+        if (!value.isIntegralNumber() || !value.canConvertToInt()) throw new IllegalArgumentException();
+        return value.intValue();
     }
 
     private void verifyAttempt(PaymentRecoveryAttempt attempt, PaymentSession session, String paymentKey, Integer amount) {
