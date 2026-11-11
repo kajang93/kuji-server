@@ -28,8 +28,10 @@ public interface DrawHistoryRepository extends JpaRepository<DrawHistory, Long> 
 
     // 티커용 상위 등상(A, B, C, Last) 최신 내역 조회 (fetch join으로 N+1 제거)
     @org.springframework.data.jpa.repository.Query("SELECT d FROM DrawHistory d " +
-            "JOIN FETCH d.member JOIN FETCH d.kujiBoard JOIN FETCH d.kujiItem i " +
-            "WHERE i.grade LIKE 'A%' OR i.grade LIKE 'B%' OR i.grade LIKE 'C%' OR UPPER(i.grade) LIKE '%LAST%' ORDER BY d.createdAt DESC")
+            "JOIN FETCH d.member JOIN FETCH d.kujiBoard b JOIN FETCH d.kujiItem i " +
+            "WHERE b.status IN (com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE, com.kuji.backend.domain.kuji.enums.BoardStatus.FINISHED) " +
+            "AND b.previewOnly = false " +
+            "AND (i.grade LIKE 'A%' OR i.grade LIKE 'B%' OR i.grade LIKE 'C%' OR UPPER(i.grade) LIKE '%LAST%') ORDER BY d.createdAt DESC")
     List<DrawHistory> findRecentHighGradeDraws(org.springframework.data.domain.Pageable pageable);
 
     // [Seller] 사업자의 쿠지판에서 발생한 배송 대기 등 특정 상태의 내역 건수 조회
