@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.web.cors.CorsUtils::isPreFlightRequest).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/analytics/funnel").permitAll()
                         .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/login/kakao",
                                 "/api/members/login/naver", "/api/members/login/google", "/error", "/ws/**")
                         .permitAll()
