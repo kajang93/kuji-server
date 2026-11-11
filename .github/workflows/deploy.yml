@@ -6,9 +6,17 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: kuji-backend-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout Source Code
@@ -84,16 +92,27 @@ jobs:
         run: chmod +x gradlew
         
       - name: Build with Gradle
-        run: ./gradlew build -x test
+        run: ./gradlew bootJar -x test
+
+      - name: Record artifact checksum
+        run: sha256sum build/libs/kuji-server-0.0.1-SNAPSHOT.jar > build/libs/kuji-server-0.0.1-SNAPSHOT.jar.sha256
         
+      - name: Prepare private incoming directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          script: install -d -m 700 "$HOME/kuji-backend-incoming"
+
       - name: Copy jar to AWS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USERNAME }}
           key: ${{ secrets.AWS_PRIVATE_KEY }}
-          source: "build/libs/kuji-server-0.0.1-SNAPSHOT.jar"
-          target: "~/"
+          source: "build/libs/kuji-server-0.0.1-SNAPSHOT.jar,build/libs/kuji-server-0.0.1-SNAPSHOT.jar.sha256"
+          target: "~/kuji-backend-incoming/${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 2
 
       - name: Copy image cache configuration
@@ -102,31 +121,31 @@ jobs:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USERNAME }}
           key: ${{ secrets.AWS_PRIVATE_KEY }}
-          source: "scripts/nginx/*,scripts/install_image_cache.py,scripts/backup_kuji.py,scripts/systemd/*"
-          target: "~/kuji-infra-temp"
+          source: "scripts/nginx/*,scripts/install_image_cache.py,scripts/backup_kuji.py,scripts/backup_integrity.py,scripts/restore_kuji.py,scripts/deploy_backend.py,scripts/systemd/*"
+          target: "~/kuji-backend-incoming/${{ github.run_id }}-${{ github.run_attempt }}/infra"
           strip_components: 1
 
-      - name: Restart Server
+      - name: Verify approval and deploy with rollback
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USERNAME }}
           key: ${{ secrets.AWS_PRIVATE_KEY }}
+          command_timeout: 15m
           script: |
-            # Nginx 업로드 용량 제한 해제 (413 Request Entity Too Large 에러 방지)
-            echo "client_max_body_size 50M;" | sudo tee /etc/nginx/conf.d/upload_size.conf
-            sudo python3 ~/kuji-infra-temp/install_image_cache.py
-            sudo install -d -m 700 /var/backups/kuji
-            sudo install -m 700 ~/kuji-infra-temp/backup_kuji.py /usr/local/sbin/kuji-backup
-            sudo install -m 644 ~/kuji-infra-temp/systemd/kuji-backup.service /etc/systemd/system/kuji-backup.service
-            sudo install -m 644 ~/kuji-infra-temp/systemd/kuji-backup.timer /etc/systemd/system/kuji-backup.timer
+            set -eu
+            incoming="$HOME/kuji-backend-incoming/${{ github.run_id }}-${{ github.run_attempt }}"
+            sudo python3 "$incoming/infra/deploy_backend.py" --check-approval --revision "${{ github.sha }}"
+            printf '%s\n' 'client_max_body_size 50M;' | sudo tee /etc/nginx/conf.d/upload_size.conf >/dev/null
+            sudo python3 "$incoming/infra/install_image_cache.py"
+            sudo install -d -m 700 /var/backups/kuji /etc/kuji-backup
+            sudo install -m 700 "$incoming/infra/backup_kuji.py" /usr/local/sbin/kuji-backup
+            sudo install -m 600 "$incoming/infra/backup_integrity.py" /usr/local/sbin/backup_integrity.py
+            sudo install -m 700 "$incoming/infra/restore_kuji.py" /usr/local/sbin/kuji-restore-check
+            sudo install -m 644 "$incoming/infra/systemd/kuji-backup.service" /etc/systemd/system/kuji-backup.service
+            sudo install -m 644 "$incoming/infra/systemd/kuji-backup.timer" /etc/systemd/system/kuji-backup.timer
+            sudo install -m 644 "$incoming/infra/systemd/kuji-restore-check.service" /etc/systemd/system/kuji-restore-check.service
+            sudo install -m 644 "$incoming/infra/systemd/kuji-restore-check.timer" /etc/systemd/system/kuji-restore-check.timer
             sudo systemctl daemon-reload
-            sudo systemctl enable --now kuji-backup.timer
-            
-            # Move the jar to the final name expected by the systemd service
-            mv ~/kuji-server-0.0.1-SNAPSHOT.jar ~/kuji-server.jar
-            sudo systemctl restart kuji-server
-            
-            # 💡 서버 기동 후 상태를 10초 대기한 뒤 확인하고 에러 로그 출력 (디버깅용)
-            sleep 10
-            sudo systemctl status kuji-server; sudo journalctl -u kuji-server -n 100 --no-pager
+            sudo systemctl enable --now kuji-backup.timer kuji-restore-check.timer
+            sudo python3 "$incoming/infra/deploy_backend.py" --artifact "$incoming/kuji-server-0.0.1-SNAPSHOT.jar" --checksum "$incoming/kuji-server-0.0.1-SNAPSHOT.jar.sha256" --revision "${{ github.sha }}"

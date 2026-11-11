@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # 결제 데이터와 비공개 등록증을 같은 스냅샷 기준으로 백업하고 무결성을 검사합니다.
+import argparse
 import fcntl
 import hashlib
 import json
@@ -11,7 +12,9 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import sys
 from datetime import datetime, timezone
+from backup_integrity import BACKUP_NAME, upload_offsite, verify_backup
 
 BASE = Path('/var/backups/kuji')
 DOCUMENTS = Path('/home/ubuntu/private/business-licenses')
@@ -19,12 +22,31 @@ PSQL = ['docker', 'exec', '-i', 'kuji-postgres', 'sh', '-c', 'exec psql -X -q -v
 
 
 def main():
+    parser = argparse.ArgumentParser(description='로컬 스냅샷과 승인된 외부 백업을 검증합니다.')
+    parser.add_argument('--upload-existing', metavar='BACKUP_TIMESTAMP')
+    args = parser.parse_args()
     os.umask(0o077)
     BASE.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(BASE, 0o700)
-    with Path('/run/lock/kuji-backup.lock').open('w') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        run_backup()
+    try:
+        with Path('/run/lock/kuji-backup.lock').open('w') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print(json.dumps({'status': 'skipped', 'reason': 'backup-in-progress'}))
+                return 0
+            if args.upload_existing:
+                if not BACKUP_NAME.fullmatch(args.upload_existing):
+                    raise ValueError('외부 전송할 백업 식별자가 올바르지 않습니다.')
+                result = upload_offsite(BASE / args.upload_existing)
+                print(json.dumps({'status': 'completed', 'offsite': result.get('verified', False)}))
+            else:
+                run_backup()
+        return 0
+    except Exception as error:
+        message = str(error) if isinstance(error, (ValueError, RuntimeError)) else '백업 단계가 실패했습니다.'
+        print(json.dumps({'status': 'failed', 'errorType': type(error).__name__, 'message': message}), file=sys.stderr)
+        return 1
 
 
 def run_backup():
@@ -45,7 +67,7 @@ def run_backup():
         ready.close()
         if not re.fullmatch(r'[0-9A-Fa-f-]+', snapshot):
             raise RuntimeError('백업 스냅샷을 생성하지 못했습니다.')
-        session.stdin.write("SELECT json_build_object('payment', (SELECT count(*) FROM payment), 'pointhistory', (SELECT count(*) FROM pointhistory), 'drawhistory', (SELECT count(*) FROM drawhistory), 'business_info', (SELECT count(*) FROM business_info));\n")
+        session.stdin.write("SELECT json_build_object('payment', (SELECT count(*) FROM payment), 'pointhistory', (SELECT count(*) FROM pointhistory), 'drawhistory', (SELECT count(*) FROM drawhistory), 'business_info', (SELECT count(*) FROM business_info), 'paymentsession', (SELECT count(*) FROM paymentsession), 'seller_sale', (SELECT count(*) FROM seller_sale), 'seller_sale_draw', (SELECT count(*) FROM seller_sale_draw), 'seller_payout', (SELECT count(*) FROM seller_payout), 'seller_payout_allocation', (SELECT count(*) FROM seller_payout_allocation), 'refund_request', (SELECT count(*) FROM refund_request));\n")
         session.stdin.flush()
         counts = json.loads(session.stdout.readline())
         dump = staging / 'database.dump'
@@ -69,12 +91,16 @@ def run_backup():
             'files': {file.name: {'bytes': file.stat().st_size, 'sha256': hashlib.sha256(file.read_bytes()).hexdigest()}
                       for file in staging.iterdir()}}
         (staging / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+        verify_backup(staging)
         staging.rename(destination)
         successful = sorted(path for path in BASE.iterdir() if path.is_dir() and re.fullmatch(r'\d{8}T\d{6}Z', path.name) and (path / 'manifest.json').is_file())
         for obsolete in successful[:-30]:
             shutil.rmtree(obsolete)
-        print(json.dumps({'backup': destination.name, 'databaseBytes': dump.stat().st_size if dump.exists() else (destination/'database.dump').stat().st_size,
-                          'documents': len(list(DOCUMENTS.iterdir())) if DOCUMENTS.exists() else 0, 'integrity': 'passed', 'offsite': False}))
+        offsite = upload_offsite(destination)
+        print(json.dumps({'backup': destination.name, 'databaseBytes': (destination / 'database.dump').stat().st_size,
+                          'documents': len(list(DOCUMENTS.iterdir())) if DOCUMENTS.exists() else 0,
+                          'integrity': 'passed', 'offsiteConfigured': offsite.get('configured', bool(offsite.get('bucket'))),
+                          'offsite': offsite.get('verified', False)}))
     finally:
         if session.poll() is None:
             try:
@@ -86,4 +112,4 @@ def run_backup():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

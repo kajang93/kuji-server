@@ -1,0 +1,15 @@
+# 운영 DB와 분리한 임시 컨테이너로 최신 백업의 실제 복원을 검사합니다.
+[Unit]
+Description=Isolated Kuji backup restore check
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+EnvironmentFile=-/etc/kuji-backup/offsite.env
+ExecStart=/usr/local/sbin/kuji-restore-check
+TimeoutStartSec=900
+Nice=15
+IOSchedulingClass=idle

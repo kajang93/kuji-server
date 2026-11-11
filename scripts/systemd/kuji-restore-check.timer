@@ -1,0 +1,11 @@
+# 매주 일요일 한국 시간 새벽 다섯 시에 격리 복원 검증을 실행합니다.
+[Unit]
+Description=Weekly isolated Kuji restore verification
+
+[Timer]
+OnCalendar=Sun *-*-* 05:00:00 Asia/Seoul
+Persistent=true
+Unit=kuji-restore-check.service
+
+[Install]
+WantedBy=timers.target
