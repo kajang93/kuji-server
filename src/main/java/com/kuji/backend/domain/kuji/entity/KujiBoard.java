@@ -31,6 +31,10 @@ public class KujiBoard extends BaseTimeEntity {
     @org.hibernate.annotations.ColumnDefault("'PREPARING'")
     private BoardStatus status;
 
+    @Column(name = "preview_only", nullable = false)
+    @ColumnDefault("false")
+    private boolean previewOnly;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;

@@ -156,6 +156,9 @@ public class KujiBoardService {
         entityManager.refresh(kujiBoard, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         com.kuji.backend.domain.kuji.enums.BoardStatus oldStatus = kujiBoard.getStatus();
 
+        if (status == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE && kujiBoard.isPreviewOnly()) {
+            throw new IllegalArgumentException("화면 확인용 미리보기 상품은 판매할 수 없습니다. 실제 재고가 있는 상품을 별도로 등록해 주세요.");
+        }
         if (status == com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE) {
             com.kuji.backend.domain.member.entity.Member member = kujiBoard.getMember();
             if (member.getBusinessInfo() == null || member.getBusinessInfo().getStatus() != com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED) {
@@ -281,6 +284,7 @@ public class KujiBoardService {
                             .title(board.getTitle())
                             .pricePerDraw(board.getPricePerDraw())
                             .status(board.getStatus())
+                            .previewOnly(board.isPreviewOnly())
                             .rewardRate(board.getRewardRate())
                             .createdAt(board.getCreatedAt())
                             .totalCount(stock != null ? stock.getTotalQty().intValue() : 0)

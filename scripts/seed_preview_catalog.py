@@ -43,8 +43,9 @@ def build_sql(catalog, owner_id, commit=False):
                  'IF existing_board IS NOT NULL THEN',
                  "  IF (SELECT status FROM kujiboard WHERE id=existing_board) <> 'PREPARING' OR EXISTS(SELECT 1 FROM drawhistory WHERE kuji_board_id=existing_board) THEN",
                  "    RAISE EXCEPTION '기존 상품의 상태나 거래 이력은 변경하지 않습니다.';", '  END IF;',
+                 "  UPDATE kujiboard SET preview_only=true WHERE id=existing_board;",
                  'ELSE',
-                 f"  INSERT INTO kujiboard(title,price_per_draw,status,member_id,reward_rate,created_at,updated_at) VALUES ({quote(title)},{price},'PREPARING',owner_id,0,current_timestamp,current_timestamp) RETURNING id INTO existing_board;",
+                 f"  INSERT INTO kujiboard(title,price_per_draw,status,member_id,reward_rate,preview_only,created_at,updated_at) VALUES ({quote(title)},{price},'PREPARING',owner_id,0,true,current_timestamp,current_timestamp) RETURNING id INTO existing_board;",
                  f'  INSERT INTO kuji_board_image(kuji_board_id,image_url,"sequence",image_type) VALUES (existing_board,{quote(image)},0,\'THUMBNAIL\');']
         for product in products:
             block += [f"  INSERT INTO kujiitem(kuji_board_id,grade,name,total_qty,remain_qty,created_at,updated_at) VALUES (existing_board,{quote(product['grade'])},{quote(product['name'])},{product['quantity']},{product['quantity']},current_timestamp,current_timestamp) RETURNING id INTO new_item;",

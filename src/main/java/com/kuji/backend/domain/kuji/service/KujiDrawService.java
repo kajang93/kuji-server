@@ -70,7 +70,7 @@ public class KujiDrawService {
     private final ObjectMapper objectMapper;
 
     private void validateSaleAvailable(KujiBoard board) {
-        if (board.getStatus() != BoardStatus.ACTIVE) {
+        if (board.isPreviewOnly() || board.getStatus() != BoardStatus.ACTIVE) {
             throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
         }
         Member seller = board.getMember();

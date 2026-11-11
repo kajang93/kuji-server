@@ -14,6 +14,7 @@ public class KujiBoardResponse {
     private String title;
     private Long pricePerDraw;
     private BoardStatus status;
+    private boolean previewOnly;
     private Integer rewardRate;
     private LocalDateTime createdAt;
     private Integer totalCount;
@@ -30,6 +31,7 @@ public class KujiBoardResponse {
                 .title(board.getTitle())
                 .pricePerDraw(board.getPricePerDraw())
                 .status(board.getStatus())
+                .previewOnly(board.isPreviewOnly())
                 .rewardRate(board.getRewardRate())
                 .createdAt(board.getCreatedAt())
                 .build();

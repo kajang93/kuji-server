@@ -32,6 +32,9 @@ public final class LastPrizeRules {
                 || item.getRemainQty() < 0 || item.getRemainQty() > 1)) {
             throw new IllegalArgumentException("라스트상은 한 종류, 수량 1개만 등록할 수 있습니다.");
         }
+        if (remainingTickets(items) > 0 && lastPrizes.stream().anyMatch(item -> item.getRemainQty() != 1)) {
+            throw new IllegalArgumentException("라스트상 재고와 일반 티켓 수량이 맞지 않아 상품 구성을 확인하고 있습니다. 확인 후 구매해 주세요.");
+        }
     }
 
     public static void validateQuantity(String grade, Integer quantity) {
