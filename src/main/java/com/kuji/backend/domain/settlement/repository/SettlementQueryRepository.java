@@ -10,12 +10,13 @@ import java.util.List;
 @Repository @RequiredArgsConstructor
 public class SettlementQueryRepository {
     private final JdbcTemplate jdbc;
-    private static final String REFUND_HOLD = "EXISTS (SELECT 1 FROM seller_sale_draw rhd JOIN refund_request rr "
+    public static final String REFUND_HOLD = "EXISTS (SELECT 1 FROM seller_sale_draw rhd JOIN refund_request rr "
             + "ON rr.target_type = 'DRAW_HISTORY' AND rr.target_id = rhd.draw_history_id "
             + "WHERE rhd.sale_id = s.id AND rr.status IN ('REQUESTED','UNDER_REVIEW','REVIEW_APPROVED'))";
-    private static final String DELIVERED = "EXISTS (SELECT 1 FROM seller_sale_draw sd WHERE sd.sale_id = s.id) "
+    public static final String DELIVERED = "EXISTS (SELECT 1 FROM seller_sale_draw sd WHERE sd.sale_id = s.id) "
             + "AND NOT EXISTS (SELECT 1 FROM seller_sale_draw sd JOIN drawhistory d ON d.id = sd.draw_history_id "
-            + "WHERE sd.sale_id = s.id AND d.status <> 'DELIVERED')";
+            + "WHERE sd.sale_id = s.id AND d.status IS DISTINCT FROM 'DELIVERED')";
+    public static final String PAYOUT_ELIGIBLE = "s.payment_environment = 'LIVE' AND s.net_amount > 0 AND (" + DELIVERED + ") AND NOT (" + REFUND_HOLD + ")";
     private static final String EVENTS = "WITH sale_events AS ("
             + "SELECT s.seller_id, s.completed_at::date AS sale_date, s.gross_amount AS amount, false AS legacy FROM seller_sale s WHERE s.payment_environment = 'LIVE' "
             + "UNION ALL SELECT b.member_id, h.created_at::date, h.amount::bigint, true FROM pointhistory h "
@@ -31,7 +32,8 @@ public class SettlementQueryRepository {
 
     public record SellerAmounts(long totalSales, long confirmedSales, long pendingSales, long platformFee,
             long pendingFee, long confirmedSettlement, long pendingSettlement, long refundHold,
-            long legacySales, long legacyReviewCount, long legacyUnreconciledCount, long testSales, long unknownSales) {}
+            long legacySales, long legacyReviewCount, long legacyUnreconciledCount, long testSales, long unknownSales,
+            long paidSettlement, long unpaidSettlement) {}
     public record DayAmount(LocalDate date, long amount) {}
 
     public SellerAmounts sellerAmounts(Long sellerId) {
@@ -56,7 +58,10 @@ public class SettlementQueryRepository {
         long[] excluded = jdbc.queryForObject("SELECT COALESCE(SUM(CASE WHEN payment_environment = 'TEST' THEN gross_amount ELSE 0 END),0), "
                 + "COALESCE(SUM(CASE WHEN payment_environment = 'UNKNOWN' THEN gross_amount ELSE 0 END),0) FROM seller_sale WHERE seller_id = ?",
                 (rs,row) -> new long[]{rs.getLong(1),rs.getLong(2)},sellerId);
-        return new SellerAmounts(posted[0]+posted[1]+legacy[0],posted[0],posted[1],posted[2],posted[3],posted[4],posted[5],posted[6],legacy[0],legacy[1]+unresolved,unresolved,excluded[0],excluded[1]);
+        long paid = jdbc.queryForObject("SELECT COALESCE(SUM(amount),0) FROM seller_payout WHERE seller_id=?", Long.class, sellerId);
+        long unpaid = jdbc.queryForObject("SELECT COALESCE(SUM(s.net_amount),0) FROM seller_sale s WHERE s.seller_id=? AND "
+                + PAYOUT_ELIGIBLE + " AND NOT EXISTS (SELECT 1 FROM seller_payout_allocation a WHERE a.sale_id=s.id)", Long.class, sellerId);
+        return new SellerAmounts(posted[0]+posted[1]+legacy[0],posted[0],posted[1],posted[2],posted[3],posted[4],posted[5],posted[6],legacy[0],legacy[1]+unresolved,unresolved,excluded[0],excluded[1],paid,unpaid);
     }
     public long totalSales() { return jdbc.queryForObject(EVENTS + "SELECT COALESCE(SUM(amount),0) FROM sale_events",Long.class); }
     public List<DayAmount> dailySales(Long sellerId, LocalDate from, LocalDate through) {
