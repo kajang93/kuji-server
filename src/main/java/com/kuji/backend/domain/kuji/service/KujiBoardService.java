@@ -199,7 +199,7 @@ public class KujiBoardService {
      * 전체 목록 조회 (찜 여부 포함)
      */
     public List<KujiBoardResponse> getAllBoards(Long memberId) {
-        List<KujiBoard> boards = kujiBoardRepository.findByStatus(com.kuji.backend.domain.kuji.enums.BoardStatus.ACTIVE);
+        List<KujiBoard> boards = kujiBoardRepository.findPublicBoards();
         return convertToResponses(boards, memberId);
     }
 
