@@ -330,7 +330,7 @@ public class KujiDrawService {
                         .amount(rewardAmount)
                         .type(PointType.REWARD)
                         .description(
-                                String.format("[%s] %d회 뽑기 적립 (%d%%)", board.getTitle(), count, board.getRewardRate()))
+                                String.format("[%s] %d장 뽑기 적립 (1장당 %dP)", board.getTitle(), count, board.getRewardRate()))
                         .appliedRewardRate(board.getRewardRate())
                         .build();
                 pointHistoryRepository.save(pointHistory);
