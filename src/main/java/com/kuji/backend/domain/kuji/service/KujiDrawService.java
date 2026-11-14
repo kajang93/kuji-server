@@ -317,9 +317,11 @@ public class KujiDrawService {
             pointHistoryRepository.save(useHistory);
         }
 
-        // 4. 포인트 적립 로직 (rewardRate를 1회당 고정 포인트로 사용)
-        if (board.getRewardRate() != null && board.getRewardRate() > 0) {
-            int rewardAmount = count * board.getRewardRate();
+        // 4. 포인트 적립: rewardRate 는 1장당 고정 포인트. 포인트로 낸 금액에는 적립하지 않고,
+        //    카드(PG)로 실제 결제한 비율만큼만 적립한다. (전액 포인트 결제 → 0P)
+        if (board.getRewardRate() != null && board.getRewardRate() > 0 && totalRequiredAmount > 0) {
+            long paidAmount = Math.max(0, totalRequiredAmount - usedPoints);
+            int rewardAmount = (int) ((long) count * board.getRewardRate() * paidAmount / totalRequiredAmount);
             if (rewardAmount > 0) {
                 member.addPoint(rewardAmount);
 
@@ -330,7 +332,9 @@ public class KujiDrawService {
                         .amount(rewardAmount)
                         .type(PointType.REWARD)
                         .description(
-                                String.format("[%s] %d장 뽑기 적립 (1장당 %dP)", board.getTitle(), count, board.getRewardRate()))
+                                usedPoints > 0
+                                        ? String.format("[%s] %d장 뽑기 적립 (1장당 %dP, 포인트 사용분 제외)", board.getTitle(), count, board.getRewardRate())
+                                        : String.format("[%s] %d장 뽑기 적립 (1장당 %dP)", board.getTitle(), count, board.getRewardRate()))
                         .appliedRewardRate(board.getRewardRate())
                         .build();
                 pointHistoryRepository.save(pointHistory);
