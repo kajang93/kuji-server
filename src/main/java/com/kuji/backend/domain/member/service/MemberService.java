@@ -269,7 +269,16 @@ public class MemberService {
     public com.kuji.backend.domain.member.dto.LoginResponse loginByNaver(
             com.kuji.backend.domain.member.dto.NaverLoginRequest request) {
         // 1. 네이버 서버에서 사용자 정보 가져오기
-        var userInfo = naverClient.getNaverUserInfo(request.getNaverAccessToken());
+        String naverAccessToken;
+        if (request.getAuthorizationCode() != null && !request.getAuthorizationCode().isBlank()) {
+            naverAccessToken = naverClient.exchangeAuthorizationCode(request.getAuthorizationCode(), request.getState());
+        } else if (!naverClient.codeFlowConfigured()) {
+            // 시크릿 설정 전까지만 예전 토큰 방식을 허용한다 (다른 앱에서 받은 토큰을 구분할 수 없음)
+            naverAccessToken = request.getNaverAccessToken();
+        } else {
+            throw new IllegalArgumentException("네이버 로그인을 다시 시도해 주세요.");
+        }
+        var userInfo = naverClient.getNaverUserInfo(naverAccessToken);
         String socialId = userInfo.getId();
         String email = userInfo.getEmail();
         String nickname = userInfo.getNickname();
