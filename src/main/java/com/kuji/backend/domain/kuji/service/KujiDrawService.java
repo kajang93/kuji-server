@@ -43,7 +43,6 @@ import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -69,26 +68,15 @@ public class KujiDrawService {
     private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
+    private final KujiDrawPicker kujiDrawPicker;
+    private final KujiDrawAvailability kujiDrawAvailability;
+
     private void validateSaleAvailable(KujiBoard board) {
-        if (board.isPreviewOnly() || board.getStatus() != BoardStatus.ACTIVE) {
-            throw new IllegalStateException("현재 판매 중인 쿠지 판이 아닙니다.");
-        }
-        Member seller = board.getMember();
-        if (seller.getBusinessInfo() == null
-                || seller.getBusinessInfo().getStatus() != com.kuji.backend.domain.member.enums.BusinessStatus.APPROVED) {
-            throw new IllegalStateException("사업자 심사가 승인되지 않은 판매자의 상품입니다.");
-        }
+        KujiDrawAvailability.validateSaleAvailable(board);
     }
 
     private int calculateRequiredAmount(KujiBoard board, int count) {
-        if (count < 1 || board.getPricePerDraw() == null || board.getPricePerDraw() < 1) {
-            throw new IllegalArgumentException("뽑기 수량과 상품 가격은 양수여야 합니다.");
-        }
-        try {
-            return Math.toIntExact(Math.multiplyExact(board.getPricePerDraw(), (long) count));
-        } catch (ArithmeticException e) {
-            throw new IllegalArgumentException("결제 가능한 금액 범위를 초과했습니다.");
-        }
+        return KujiDrawAvailability.calculateRequiredAmount(board, count);
     }
 
     /**
@@ -186,26 +174,28 @@ public class KujiDrawService {
             }
         }
 
-        KujiBoard board = kujiBoardRepository.findByIdWithLock(boardId)
-                .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
-        validateSaleAvailable(board);
-        int totalRequiredAmount = calculateRequiredAmount(board, count);
-        List<KujiItem> allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
-        LastPrizeRules.validateLastPrize(allItems);
-        long availableCount = LastPrizeRules.remainingTickets(allItems);
-        if (availableCount < count) {
-            throw new IllegalStateException("요청한 수량보다 남은 일반 티켓이 부족합니다.");
-        }
-
-        // 결제 승인은 잠근 재고가 요청 수량을 충족하는 경우에만 진행합니다.
+        KujiBoard board;
+        List<KujiItem> allItems;
+        int totalRequiredAmount;
         Payment savedPayment = null;
         int usedPoints = 0;
 
         if (request.getPaymentType() == PaymentType.POINT) {
-            // 포인트 결제: 잔여 포인트 차감 시도
+            // 포인트 결제는 외부 호출이 없으므로 쿠지 판을 먼저 잠그고 바로 차감합니다.
+            board = kujiBoardRepository.findByIdWithLock(boardId)
+                    .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+            validateSaleAvailable(board);
+            totalRequiredAmount = calculateRequiredAmount(board, count);
+            allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+            KujiDrawAvailability.validateStock(allItems, count);
             usedPoints = totalRequiredAmount;
-            member.deductPoint(totalRequiredAmount); 
+            member.deductPoint(totalRequiredAmount);
         } else if (request.getPaymentType() == PaymentType.PG) {
+            // 토스 승인(최대 수 초)을 기다리는 동안 쿠지 판 락을 잡지 않도록,
+            // 락 없는 사전 확인 → 승인 → 판 잠금 후 재검증 순서로 진행합니다.
+            // 승인 뒤 재검증에 실패하면 예외로 롤백되고, PaymentRecoveryService 가 등록한
+            // 롤백 훅(PaymentCompensationService)이 승인된 결제를 자동 취소합니다.
+            totalRequiredAmount = kujiDrawAvailability.precheck(boardId, count);
             // PG 결제: 잠근 결제 세션이 현재 구매 요청과 일치하는지 확인합니다.
             if (!session.getMember().getId().equals(memberId)
                     || session.getSessionType() != SessionType.KUJI_DRAW
@@ -265,39 +255,31 @@ public class KujiDrawService {
             savedPayment = paymentRepository.save(payment);
             businessLogger.info("[PAYMENT_SUCCESS] type=KUJI_DRAW, memberId={}, orderId={}, amount={}",
                     memberId, request.getOrderId(), request.getAmount());
+
+            // 승인 완료 후에야 쿠지 판을 잠그고, 그 사이 매진·판매중지·가격 변경이 없었는지 다시 확인합니다.
+            board = kujiBoardRepository.findByIdWithLock(boardId)
+                    .orElseThrow(() -> new IllegalArgumentException("쿠지 판을 찾을 수 없습니다."));
+            allItems = kujiItemRepository.findAllByKujiBoardIdOrderByGradeAsc(boardId);
+            try {
+                validateSaleAvailable(board);
+                if (calculateRequiredAmount(board, count) != totalRequiredAmount) {
+                    throw new IllegalStateException("결제 중 상품 가격이 변경되었습니다.");
+                }
+                KujiDrawAvailability.validateStock(allItems, count);
+            } catch (RuntimeException e) {
+                businessLogger.warn("[PAYMENT_AUTO_CANCEL] type=KUJI_DRAW, memberId={}, orderId={}, reason=\"{}\"",
+                        memberId, request.getOrderId(), e.getMessage());
+                throw new IllegalStateException(e.getMessage() + " 승인된 결제는 자동으로 취소됩니다.", e);
+            }
         } else {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");
         }
 
-        // 2. 승인 전 검증한 쿠지 판과 상품 목록으로 추첨합니다.
-        List<KujiItem> winningItems = new ArrayList<>();
-        List<DrawHistory> drawHistories = new ArrayList<>();
-        Random random = new Random();
-
+        // 2. 잠근 쿠지 판과 상품 목록으로 추첨합니다 (SecureRandom + 감사 로그).
         // 라스트상은 일반 티켓에 포함하지 않고 마지막 일반 티켓 구매자에게만 추가합니다.
-        for (int i = 0; i < count; i++) {
-            List<KujiItem> availableItems = allItems.stream()
-                    .filter(item -> !LastPrizeRules.isLastGrade(item.getGrade()) && item.getRemainQty() > 0)
-                    .toList();
-            long totalRemain = LastPrizeRules.remainingTickets(availableItems);
-            long selected = random.nextLong(totalRemain) + 1;
-            long cumulative = 0;
-            for (KujiItem item : availableItems) {
-                cumulative += item.getRemainQty();
-                if (selected <= cumulative) {
-                    item.decreaseRemainQty();
-                    winningItems.add(item);
-                    break;
-                }
-            }
-        }
-        if (LastPrizeRules.remainingTickets(allItems) == 0) {
-            allItems.stream().filter(item -> LastPrizeRules.isLastGrade(item.getGrade()) && item.getRemainQty() > 0)
-                    .findFirst().ifPresent(item -> {
-                        item.decreaseRemainQty();
-                        winningItems.add(item);
-                    });
-        }
+        String drawId = request.getOrderId() != null ? request.getOrderId() : "POINT-" + UUID.randomUUID();
+        List<KujiItem> winningItems = kujiDrawPicker.pick(allItems, count, drawId, memberId, boardId);
+        List<DrawHistory> drawHistories = new ArrayList<>();
 
         for (KujiItem item : winningItems) {
             DrawHistory history = DrawHistory.builder().status(DrawStatus.DRAWN).member(member)
