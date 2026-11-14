@@ -38,6 +38,11 @@ import org.slf4j.LoggerFactory;
 @Transactional
 public class PointService {
 
+    // 충전 한도: 1회 100만원, 보유 포인트 200만P (선불 충전 잔액 관리 기준)
+    static final int MAX_CHARGE_PER_ORDER = 1_000_000;
+    static final int MAX_POINT_BALANCE = 2_000_000;
+
+
     private static final Logger businessLogger = LoggerFactory.getLogger("BUSINESS_LOGGER");
 
     private final MemberRepository memberRepository;
@@ -56,6 +61,14 @@ public class PointService {
 
         if (request.getAmount() == null || request.getAmount() < 1000) {
             throw new IllegalArgumentException("최소 충전 금액은 1,000원입니다.");
+        }
+        if (request.getAmount() > MAX_CHARGE_PER_ORDER) {
+            throw new IllegalArgumentException("1회 충전 한도는 1,000,000원입니다.");
+        }
+        long afterCharge = (long) member.getPoint() + request.getAmount() + calculateBonusPoints(request.getAmount());
+        if (afterCharge > MAX_POINT_BALANCE) {
+            throw new IllegalArgumentException(String.format("포인트는 최대 %,d P까지 보유할 수 있습니다. 지금은 %,d원까지 충전할 수 있어요.",
+                    MAX_POINT_BALANCE, Math.max(0, MAX_POINT_BALANCE - member.getPoint())));
         }
 
         String orderId = "CHARGE-" + UUID.randomUUID().toString();
