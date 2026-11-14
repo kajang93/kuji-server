@@ -26,7 +26,8 @@ public class NotificationSetting extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean pushEnabled = true;
 
-    // 거래 푸시 유형 (기존 API·DB 필드명은 호환성을 위해 유지)
+    // 기기 푸시 유형 (기존 API·DB 필드명은 호환성을 위해 유지)
+    // kakaoWinning = 배송 완료 알림, kakaoDelivery = 배송 출발 알림. 나머지 필드는 현재 기기 푸시에 쓰지 않는다.
     @Column(nullable = false)
     private boolean kakaoWinning = true;
 

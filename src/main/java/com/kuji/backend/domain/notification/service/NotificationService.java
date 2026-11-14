@@ -194,21 +194,17 @@ public class NotificationService {
         };
     }
 
+    /**
+     * 기기 푸시는 배송 출발·배송 완료 두 가지만 보낸다. 그 외 소식(배송 신청, 문의 답변, 댓글, 관심상품 등)은
+     * 앱 알림함에만 저장한다. 설정 필드명은 기존 API·DB 호환을 위해 유지하며
+     * kakaoDelivery = 배송 출발 알림, kakaoWinning = 배송 완료 알림 으로 사용한다.
+     */
     static boolean allowsPush(Member receiver, NotificationSetting setting, NotificationType type, String subType, LocalTime now) {
-        if ("WINNING".equals(subType)) return false;
+        if (type != NotificationType.SHIPPING) return false;
         if (setting != null && !setting.isPushEnabled()) return false;
-        if (isMarketing(type, subType)) {
-            if (!hasMarketingConsent(receiver, setting, subType)) return false;
-            boolean night = !now.isBefore(LocalTime.of(21, 0)) || now.isBefore(LocalTime.of(8, 0));
-            return !night || setting.isNightPush();
-        }
-        if (setting == null) return true;
-        if ("BIZ_ORDER".equals(subType)) return setting.isKakaoBizOrder();
-        if ("BIZ_CANCEL".equals(subType)) return setting.isKakaoBizCancel();
-        if ("BIZ_INQUIRY".equals(subType)) return setting.isKakaoBizInquiry();
-        if (type == NotificationType.SHIPPING) return setting.isKakaoDelivery();
-        if (type == NotificationType.COMMENT && "INQUIRY".equals(subType)) return setting.isKakaoInquiry();
-        return true;
+        if ("DELIVERY_START".equals(subType)) return setting == null || setting.isKakaoDelivery();
+        if ("DELIVERY_COMPLETE".equals(subType)) return setting == null || setting.isKakaoWinning();
+        return false;
     }
 
     /**
