@@ -20,7 +20,8 @@ public record AdminMemberResponse(
         String companyName,
         String businessNumber,
         String rejectReason,
-        boolean licenseSubmitted
+        boolean licenseSubmitted,
+        Integer points
 ) {
     public static AdminMemberResponse from(Member member) {
         return new AdminMemberResponse(
@@ -39,6 +40,7 @@ public record AdminMemberResponse(
                 member.getBusinessInfo() == null ? null : member.getBusinessInfo().getBusinessNumber(),
                 member.getBusinessInfo() == null ? null : member.getBusinessInfo().getRejectReason(),
                 member.getBusinessInfo() != null && member.getBusinessInfo().getLicenseImageUrl() != null && member.getBusinessInfo().getLicenseImageUrl().startsWith("private-license:")
-        );
+        ,
+                member.getPoint());
     }
 }
