@@ -38,6 +38,9 @@ jobs:
           THREADS_REPLY_MONITOR_ENABLED: ${{ secrets.THREADS_REPLY_MONITOR_ENABLED }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           METRICOOL_API_TOKEN: ${{ secrets.METRICOOL_API_TOKEN }}
@@ -70,6 +73,9 @@ jobs:
           for env_key, section, property_key in (
               ("KAKAO_REST_API_KEY", "kakao", "rest-api-key"),
               ("KAKAO_CLIENT_SECRET", "kakao", "client-secret"),
+              ("GOOGLE_CLIENT_ID", "google", "client-id"),
+              ("NAVER_CLIENT_ID", "naver", "client-id"),
+              ("NAVER_CLIENT_SECRET", "naver", "client-secret"),
               ("TOSS_SECRET_KEY", "toss", "secret-key"),
               ("SLACK_WEBHOOK_URL", "slack", "webhook-url"),
               ("METRICOOL_API_TOKEN", "metricool", "api-token"),
