@@ -81,6 +81,18 @@ public class MemberController {
                 .body(response);
     }
 
+    /**
+     * 간편 로그인 신규 회원 가입 완료 (약관 동의 후)
+     */
+    @PostMapping("/signup/social")
+    public ResponseEntity<LoginResponse> socialSignup(@RequestBody com.kuji.backend.domain.member.dto.SocialSignupRequest request) {
+        LoginResponse response = memberService.completeSocialSignup(request);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
+    }
+
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from("refresh_token", refreshToken)
                 .httpOnly(true)

@@ -41,6 +41,7 @@ public class MemberService {
     private final SmsVerificationService smsVerificationService;
     private final com.kuji.backend.domain.member.repository.RefreshTokenRepository refreshTokenRepository;
     private final com.kuji.backend.domain.notification.repository.DeviceTokenRepository deviceTokenRepository;
+    private final SocialSignupTicketStore socialSignupTickets;
 
     private com.kuji.backend.domain.member.dto.LoginResponse generateLoginResponse(Member member, boolean isNewUser) {
         String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
@@ -67,6 +68,38 @@ public class MemberService {
                 .nickname(member.getNickname())
                 .profileImageUrl(member.getProfileImageUrl())
                 .build();
+    }
+
+    /**
+     * 간편 로그인 신규 회원 가입 완료: 약관 동의 화면의 결과와 가입 표로 회원을 만든다.
+     */
+    @Transactional
+    public com.kuji.backend.domain.member.dto.LoginResponse completeSocialSignup(
+            com.kuji.backend.domain.member.dto.SocialSignupRequest request) {
+        if (!Boolean.TRUE.equals(request.isAgeOver14()) || !Boolean.TRUE.equals(request.isTermsAgreed())
+                || !Boolean.TRUE.equals(request.isPrivacyAgreed())) {
+            throw new IllegalArgumentException("필수 항목(만 14세 이상, 이용약관, 개인정보 수집·이용)에 모두 동의해 주세요.");
+        }
+        SocialSignupTicketStore.PendingSocialSignup pending = socialSignupTickets.consume(request.signupTicket())
+                .orElseThrow(() -> new IllegalArgumentException("가입 시간이 지났습니다. 간편 로그인을 다시 진행해 주세요."));
+        var existing = memberRepository.findBySocialTypeAndSocialId(pending.socialType(), pending.socialId());
+        if (existing.isPresent()) return generateLoginResponse(existing.get(), false);
+        if (pending.email() != null && !pending.email().isEmpty() && memberRepository.findByEmail(pending.email()).isPresent()) {
+            throw new IllegalArgumentException("이미 해당 이메일로 가입된 계정이 존재합니다.");
+        }
+        String nickname = pending.nickname() != null && !pending.nickname().isEmpty() ? pending.nickname() : generateRandomNickname();
+        Member member = memberRepository.save(Member.builder()
+                .role(com.kuji.backend.domain.member.enums.RoleType.USER)
+                .socialType(pending.socialType())
+                .socialId(pending.socialId())
+                .email(pending.email())
+                .nickname(nickname)
+                .profileImageUrl(pending.profileImageUrl())
+                .isTermsAgreed(true)
+                .isPrivacyAgreed(true)
+                .isMarketingAgreed(Boolean.TRUE.equals(request.isMarketingAgreed()))
+                .build());
+        return generateLoginResponse(member, true);
     }
 
     /**
@@ -231,6 +264,7 @@ public class MemberService {
                                 .email(email)
                                 .nickname(nickname)
                                 .profileImageUrl(profileImageUrl)
+                                .signupTicket(socialSignupTickets.issue(SocialType.KAKAO, socialId, email, nickname, profileImageUrl))
                                 .build();
                     }
 
@@ -302,6 +336,7 @@ public class MemberService {
                                 .email(email)
                                 .nickname(nickname)
                                 .profileImageUrl(profileImageUrl)
+                                .signupTicket(socialSignupTickets.issue(SocialType.NAVER, socialId, email, nickname, profileImageUrl))
                                 .build();
                     }
 
@@ -364,6 +399,7 @@ public class MemberService {
                                 .email(email)
                                 .nickname(nickname)
                                 .profileImageUrl(profileImageUrl)
+                                .signupTicket(socialSignupTickets.issue(SocialType.GOOGLE, socialId, email, nickname, profileImageUrl))
                                 .build();
                     }
 
