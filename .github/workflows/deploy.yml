@@ -39,6 +39,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NTS_SERVICE_KEY: ${{ secrets.NTS_SERVICE_KEY }}
           TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
@@ -66,6 +67,7 @@ jobs:
               ("GOOGLE_CLIENT_ID", "google", "client-id"),
               ("NAVER_CLIENT_ID", "naver", "client-id"),
               ("NAVER_CLIENT_SECRET", "naver", "client-secret"),
+              ("NTS_SERVICE_KEY", "nts", "service-key"),
               ("TOSS_SECRET_KEY", "toss", "secret-key"),
               ("SLACK_WEBHOOK_URL", "slack", "webhook-url"),
           ):
