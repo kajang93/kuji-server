@@ -8,7 +8,6 @@ import com.kuji.backend.domain.payment.entity.Payment;
 import com.kuji.backend.domain.payment.enums.PaymentStatus;
 import com.kuji.backend.domain.settlement.entity.SellerSale;
 import com.kuji.backend.domain.settlement.repository.SellerSaleRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,11 +22,12 @@ public class SettlementService {
     private final SellerSale.PaymentEnvironment paymentEnvironment;
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
-    public SettlementService(SellerSaleRepository sales, @Value("${toss.secret-key:}") String secretKey) {
+    public SettlementService(SellerSaleRepository sales, com.kuji.backend.global.infra.nice.NicePaymentClient nice) {
         this.sales = sales;
-        this.paymentEnvironment = secretKey != null && secretKey.startsWith("live_sk_") ? SellerSale.PaymentEnvironment.LIVE
-                : secretKey != null && secretKey.startsWith("test_sk_") ? SellerSale.PaymentEnvironment.TEST
-                : SellerSale.PaymentEnvironment.UNKNOWN;
+        // 나이스 운영 키(R…)로 받은 매출만 LIVE 로 정산하고, 샌드박스 키(S…) 매출은 TEST 로 구분한다.
+        Boolean live = nice.isLive();
+        this.paymentEnvironment = live == null ? SellerSale.PaymentEnvironment.UNKNOWN
+                : live ? SellerSale.PaymentEnvironment.LIVE : SellerSale.PaymentEnvironment.TEST;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

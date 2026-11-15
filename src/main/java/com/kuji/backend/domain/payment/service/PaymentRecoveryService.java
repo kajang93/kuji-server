@@ -15,7 +15,7 @@ import com.kuji.backend.domain.payment.enums.SessionStatus;
 import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRecoveryAttemptRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
-import com.kuji.backend.global.infra.toss.TossPaymentClient;
+import com.kuji.backend.global.infra.nice.NicePaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,13 +39,13 @@ public class PaymentRecoveryService {
     private final PaymentRecoveryAttemptRepository attempts;
     private final PaymentCompensationService compensation;
     private final PaymentSubmissionService submission;
-    private final TossPaymentClient toss;
+    private final NicePaymentClient nice;
     private final ObjectMapper mapper;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registerAttempt(Long memberId, String paymentKey, String orderId, Integer amount,
             SessionType type, Long boardId, Integer count) {
-        TossPaymentClient.validateRequest(paymentKey, orderId, amount);
+        NicePaymentClient.validateRequest(paymentKey, orderId, amount);
         members.findByIdWithLock(memberId).orElseThrow(() -> new IllegalArgumentException("결제 정보를 확인할 수 없습니다."));
         PaymentSession session = sessions.findByOrderIdWithLock(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("결제 정보를 확인할 수 없습니다."));
@@ -92,7 +92,7 @@ public class PaymentRecoveryService {
                 }
             }
         });
-        toss.confirmPayment(paymentKey, session.getOrderId(), amount);
+        nice.confirmPayment(paymentKey, session.getOrderId(), amount);
     }
 
     public void complete(PaymentSession session, Object response) {

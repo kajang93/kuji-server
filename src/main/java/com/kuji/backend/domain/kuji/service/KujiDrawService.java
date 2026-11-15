@@ -191,7 +191,7 @@ public class KujiDrawService {
             usedPoints = totalRequiredAmount;
             member.deductPoint(totalRequiredAmount);
         } else if (request.getPaymentType() == PaymentType.PG) {
-            // 토스 승인(최대 수 초)을 기다리는 동안 쿠지 판 락을 잡지 않도록,
+            // 나이스 승인(최대 수 초)을 기다리는 동안 쿠지 판 락을 잡지 않도록,
             // 락 없는 사전 확인 → 승인 → 판 잠금 후 재검증 순서로 진행합니다.
             // 승인 뒤 재검증에 실패하면 예외로 롤백되고, PaymentRecoveryService 가 등록한
             // 롤백 훅(PaymentCompensationService)이 승인된 결제를 자동 취소합니다.
@@ -230,7 +230,7 @@ public class KujiDrawService {
                 throw new IllegalArgumentException("포인트가 부족합니다.");
             }
 
-            // 토스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
+            // 나이스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
             try {
                 paymentRecoveryService.confirm(session, request.getPaymentKey(), request.getAmount());
             } catch (Exception e) {
@@ -248,7 +248,7 @@ public class KujiDrawService {
                     .pguid(request.getPaymentKey())
                     .merchantUid(request.getOrderId())
                     .amount(BigDecimal.valueOf(request.getAmount()))
-                    .paymentMethod("TOSS") // 임의 지정
+                    .paymentMethod("NICE")
                     .status(PaymentStatus.PAID)
                     .paidAt(OffsetDateTime.now())
                     .build();

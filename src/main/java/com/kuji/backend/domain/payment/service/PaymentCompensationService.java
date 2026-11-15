@@ -7,7 +7,7 @@ import com.kuji.backend.domain.payment.entity.PaymentSession;
 import com.kuji.backend.domain.payment.enums.SessionStatus;
 import com.kuji.backend.domain.payment.repository.PaymentRecoveryAttemptRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
-import com.kuji.backend.global.infra.toss.TossPaymentClient;
+import com.kuji.backend.global.infra.nice.NicePaymentClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -20,12 +20,12 @@ public class PaymentCompensationService {
     private final MemberRepository members;
     private final PaymentSessionRepository sessions;
     private final PaymentRecoveryAttemptRepository attempts;
-    private final TossPaymentClient toss;
+    private final NicePaymentClient nice;
     private final TransactionTemplate transaction;
 
     public PaymentCompensationService(MemberRepository members, PaymentSessionRepository sessions,
-            PaymentRecoveryAttemptRepository attempts, TossPaymentClient toss, PlatformTransactionManager manager) {
-        this.members = members; this.sessions = sessions; this.attempts = attempts; this.toss = toss;
+            PaymentRecoveryAttemptRepository attempts, NicePaymentClient nice, PlatformTransactionManager manager) {
+        this.members = members; this.sessions = sessions; this.attempts = attempts; this.nice = nice;
         this.transaction = new TransactionTemplate(manager);
         this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -62,7 +62,7 @@ public class PaymentCompensationService {
         if (session.getStatus() == SessionStatus.COMPLETED) return;
         if (attempt.getState() != PaymentRecoveryAttempt.State.RECOVERING) return;
         try {
-            var payment = toss.findPayment(attempt.getPaymentKey(), orderId, attempt.getAmount());
+            var payment = nice.findPayment(attempt.getPaymentKey(), orderId, attempt.getAmount());
             if (payment.isEmpty()) {
                 // 조회 반영이 늦는 경우에도 나중에 승인된 결제를 놓치지 않도록 기록을 유지합니다.
                 attempt.retryLater();
@@ -75,7 +75,7 @@ public class PaymentCompensationService {
                 attempt.fail();
                 session.updateStatus(SessionStatus.FAILED);
             } else if (payment.get().canCompensate()) {
-                toss.cancelPayment(attempt.getPaymentKey(), orderId, attempt.getAmount());
+                nice.cancelPayment(attempt.getPaymentKey(), orderId, attempt.getAmount());
                 attempt.cancel();
                 session.updateStatus(SessionStatus.FAILED);
             } else {
