@@ -54,6 +54,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.web.cors.CorsUtils::isPreFlightRequest).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/analytics/funnel").permitAll()
+                        // 나이스 결제창이 카드 인증 결과를 POST 하는 주소 (승인은 로그인한 확인 요청에서만 처리)
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payments/nice/return").permitAll()
                         .requestMatchers("/api/members/signup", "/api/members/signup/social", "/api/business/verify-number", "/api/members/login", "/api/members/login/kakao",
                                 "/api/members/login/naver", "/api/members/login/google", "/error", "/ws/**")
                         .permitAll()
