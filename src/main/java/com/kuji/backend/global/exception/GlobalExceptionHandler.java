@@ -10,6 +10,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice // 💡 "이 식당(프로젝트)에서 터지는 모든 에러는 내가 다 낚아챈다!"
 public class GlobalExceptionHandler {
 
+    // 업로드 용량 초과 (파일 5MB, 요청 20MB) 는 원인을 알 수 있는 메시지로 돌려준다
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE.value(), "이미지 용량이 너무 큽니다. 한 장 5MB 이하로 올려 주세요."));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
