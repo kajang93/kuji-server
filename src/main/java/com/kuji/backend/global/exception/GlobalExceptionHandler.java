@@ -40,4 +40,19 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
+
+    /**
+     * 판매 중지·재고 부족·사업자 미승인처럼 지금 상태 때문에 처리할 수 없는 요청은 409와 함께 이유를 돌려준다.
+     * 라이브러리 내부 오류처럼 한글 안내가 없는 메시지는 내부 정보가 새지 않도록 일반 문구로 바꾼다.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalStateException(IllegalStateException e) {
+        String message = e.getMessage();
+        if (message == null || !message.matches("(?s).*[가-힣].*")) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), message));
+    }
 }
