@@ -42,6 +42,7 @@ public class MemberService {
     private final com.kuji.backend.domain.member.repository.RefreshTokenRepository refreshTokenRepository;
     private final com.kuji.backend.domain.notification.repository.DeviceTokenRepository deviceTokenRepository;
     private final SocialSignupTicketStore socialSignupTickets;
+    private final com.kuji.backend.domain.business.service.BusinessStatusVerifier businessStatusVerifier;
 
     private com.kuji.backend.domain.member.dto.LoginResponse generateLoginResponse(Member member, boolean isNewUser) {
         String accessToken = jwtUtil.createToken(member.getId(), member.getEmail(), member.getRole().name());
@@ -159,6 +160,8 @@ public class MemberService {
             businessNumber = com.kuji.backend.domain.business.service.BusinessInfoService.validateRegistration(
                     request.companyName(), request.businessNumber(), request.ceoName(), request.businessAddress());
             if (businessInfoRepository.existsByBusinessNumber(businessNumber)) throw new IllegalArgumentException("이미 등록된 사업자등록번호입니다.");
+            // 국세청 상태조회로 휴·폐업·미등록 번호는 가입을 막는다 (조회 설정 전에는 관리자 심사로 확인)
+            businessStatusVerifier.requireRegistrable(businessNumber);
             if (license == null || license.isEmpty()) throw new IllegalArgumentException("사업자 등록증 파일을 함께 제출해 주세요.");
         }
 

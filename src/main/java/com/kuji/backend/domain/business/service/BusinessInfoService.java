@@ -23,6 +23,7 @@ public class BusinessInfoService {
     private final BusinessInfoRepository businessInfoRepository;
     private final MemberRepository memberRepository;
     private final BusinessLicenseStorage licenseStorage;
+    private final BusinessStatusVerifier statusVerifier;
 
     public static String validateRegistration(String companyName, String businessNumber, String ceoName, String address) {
         if (companyName == null || companyName.isBlank() || companyName.length() > 100 ||
@@ -30,6 +31,11 @@ public class BusinessInfoService {
                 address == null || address.isBlank() || address.length() > 255) {
             throw new IllegalArgumentException("상호명, 대표자명, 사업장 주소를 올바르게 입력해 주세요.");
         }
+        return validateNumberFormat(businessNumber);
+    }
+
+    /** 사업자등록번호 10자리와 검증번호(체크섬)를 확인한다. */
+    public static String validateNumberFormat(String businessNumber) {
         String number = businessNumber == null ? "" : businessNumber.replace("-", "").trim();
         if (!number.matches("[0-9]{10}")) throw new IllegalArgumentException("사업자등록번호 10자리를 확인해 주세요.");
         int[] weights = {1,3,7,1,3,7,1,3,5};
@@ -45,6 +51,7 @@ public class BusinessInfoService {
         Member member = memberRepository.findById(memberId).orElseThrow(() -> new AccessDeniedException("회원 정보를 확인해 주세요."));
         if (member.getRole() != RoleType.BIZ) throw new AccessDeniedException("사업자 계정으로 로그인해 주세요.");
         String number = validateRegistration(request.companyName(), request.businessNumber(), request.representativeName(), request.businessAddress());
+        statusVerifier.requireRegistrable(number);
         BusinessInfo existing = businessInfoRepository.findByIdWithLock(memberId).orElse(null);
         if (existing != null && existing.getStatus() == BusinessStatus.APPROVED) throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 승인된 사업자입니다.");
         if ((existing == null || !number.equals(existing.getBusinessNumber())) && businessInfoRepository.existsByBusinessNumber(number)) {
