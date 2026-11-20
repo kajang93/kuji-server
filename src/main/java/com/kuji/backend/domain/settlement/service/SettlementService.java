@@ -22,10 +22,10 @@ public class SettlementService {
     private final SellerSale.PaymentEnvironment paymentEnvironment;
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
-    public SettlementService(SellerSaleRepository sales, com.kuji.backend.global.infra.nice.NicePaymentClient nice) {
+    public SettlementService(SellerSaleRepository sales, com.kuji.backend.global.infra.portone.PortOnePaymentClient portone) {
         this.sales = sales;
-        // 나이스 운영 키(R…)로 받은 매출만 LIVE 로 정산하고, 샌드박스 키(S…) 매출은 TEST 로 구분한다.
-        Boolean live = nice.isLive();
+        // 포트원 실결제 채널(portone.live=true)로 받은 매출만 LIVE, 테스트 채널 매출은 TEST 로 구분한다.
+        Boolean live = portone.isLive();
         this.paymentEnvironment = live == null ? SellerSale.PaymentEnvironment.UNKNOWN
                 : live ? SellerSale.PaymentEnvironment.LIVE : SellerSale.PaymentEnvironment.TEST;
     }

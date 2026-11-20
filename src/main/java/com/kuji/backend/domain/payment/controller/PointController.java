@@ -35,7 +35,7 @@ public class PointController {
     }
 
     /**
-     * 포인트 충전 승인 (나이스 결제 승인 + 포인트 지급)
+     * 포인트 충전 승인 (포트원 결제 확인 + 포인트 지급)
      * POST /api/points/charge/confirm
      */
     @PostMapping("/charge/confirm")

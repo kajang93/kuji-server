@@ -15,7 +15,7 @@ import com.kuji.backend.domain.payment.enums.SessionStatus;
 import com.kuji.backend.domain.payment.enums.SessionType;
 import com.kuji.backend.domain.payment.repository.PaymentRecoveryAttemptRepository;
 import com.kuji.backend.domain.payment.repository.PaymentSessionRepository;
-import com.kuji.backend.global.infra.nice.NicePaymentClient;
+import com.kuji.backend.global.infra.portone.PortOnePaymentClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,13 +39,13 @@ public class PaymentRecoveryService {
     private final PaymentRecoveryAttemptRepository attempts;
     private final PaymentCompensationService compensation;
     private final PaymentSubmissionService submission;
-    private final NicePaymentClient nice;
+    private final PortOnePaymentClient portone;
     private final ObjectMapper mapper;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registerAttempt(Long memberId, String paymentKey, String orderId, Integer amount,
             SessionType type, Long boardId, Integer count) {
-        NicePaymentClient.validateRequest(paymentKey, orderId, amount);
+        PortOnePaymentClient.validateRequest(paymentKey, orderId, amount);
         members.findByIdWithLock(memberId).orElseThrow(() -> new IllegalArgumentException("결제 정보를 확인할 수 없습니다."));
         PaymentSession session = sessions.findByOrderIdWithLock(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("결제 정보를 확인할 수 없습니다."));
@@ -61,6 +61,21 @@ public class PaymentRecoveryService {
         }
         if (existing == null) attempts.saveAndFlush(new PaymentRecoveryAttempt(orderId, memberId, paymentKey, amount, type));
         else if (existing.getState() != PaymentRecoveryAttempt.State.OPEN) throw new IllegalStateException("결제를 복구하고 있습니다. 결제 상태를 확인해주세요.");
+    }
+
+    /**
+     * 포트원 결제는 확인 요청 전에 이미 끝나 있으므로, 확인 요청 처리 중 어떤 이유로든 롤백되면 바로 결제를 확인·취소한다.
+     */
+    public void compensateOnRollback(String orderId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    try { compensation.recover(orderId); }
+                    catch (RuntimeException e) { log.warn("결제 복구가 예약된 상태입니다. orderId={}", orderId); }
+                }
+            }
+        });
     }
 
     public JsonNode completedResult(PaymentSession session, String paymentKey, Integer amount) {
@@ -92,7 +107,7 @@ public class PaymentRecoveryService {
                 }
             }
         });
-        nice.confirmPayment(paymentKey, session.getOrderId(), amount);
+        portone.confirmPayment(paymentKey, session.getOrderId(), amount);
     }
 
     public void complete(PaymentSession session, Object response) {

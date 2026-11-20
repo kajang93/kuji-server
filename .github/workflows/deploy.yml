@@ -40,8 +40,8 @@ jobs:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NTS_SERVICE_KEY: ${{ secrets.NTS_SERVICE_KEY }}
-          NICE_CLIENT_ID: ${{ secrets.NICE_CLIENT_ID }}
-          NICE_SECRET_KEY: ${{ secrets.NICE_SECRET_KEY }}
+          PORTONE_API_SECRET: ${{ secrets.PORTONE_API_SECRET }}
+          PORTONE_LIVE: ${{ secrets.PORTONE_LIVE }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           python3 - <<'PYTHON'
@@ -69,8 +69,8 @@ jobs:
               ("NAVER_CLIENT_ID", "naver", "client-id"),
               ("NAVER_CLIENT_SECRET", "naver", "client-secret"),
               ("NTS_SERVICE_KEY", "nts", "service-key"),
-              ("NICE_CLIENT_ID", "nice", "client-id"),
-              ("NICE_SECRET_KEY", "nice", "secret-key"),
+              ("PORTONE_API_SECRET", "portone", "api-secret"),
+              ("PORTONE_LIVE", "portone", "live"),
               ("SLACK_WEBHOOK_URL", "slack", "webhook-url"),
           ):
               value = os.environ.get(env_key, "").strip()

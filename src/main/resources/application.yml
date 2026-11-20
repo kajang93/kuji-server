@@ -48,12 +48,13 @@ jwt:
 file:
   upload-dir: uploads
 
-nice:
-  # 나이스페이먼츠 결제창(Server 승인 모델) 키. 배포 시 저장소 비밀값(NICE_CLIENT_ID, NICE_SECRET_KEY)으로 주입한다.
-  # 운영 키(R1_/R2_)는 api.nicepay.co.kr, 샌드박스 키(S1_/S2_)는 sandbox-api.nicepay.co.kr 로 자동 연결된다.
-  client-id: ${NICE_CLIENT_ID:}
-  secret-key: ${NICE_SECRET_KEY:}
-  api-url: ${NICE_API_URL:}
+portone:
+  # 포트원 V2. API Secret 은 배포 시 저장소 비밀값(PORTONE_API_SECRET)으로만 주입한다.
+  api-secret: ${PORTONE_API_SECRET:}
+  # 상점 ID 는 공개 값이다.
+  store-id: ${PORTONE_STORE_ID:store-5aa93057-fbd5-4899-85b8-79b660c2747a}
+  # 실결제 채널로 바꾸면 true. true 이면 테스트 채널 결제는 주문으로 처리하지 않는다.
+  live: ${PORTONE_LIVE:false}
 aligo:
   api-key: ${ALIGO_API_KEY:mock}
   user-id: ${ALIGO_USER_ID:mock}

@@ -144,6 +144,7 @@ public class KujiDrawService {
         if (request.getPaymentType() == PaymentType.PG) {
             paymentRecoveryService.registerAttempt(memberId, request.getPaymentKey(), request.getOrderId(),
                     request.getAmount(), SessionType.KUJI_DRAW, boardId, count);
+            paymentRecoveryService.compensateOnRollback(request.getOrderId());
         }
 
         // 충전과 같은 순서로 회원을 먼저 잠가 포인트 차감과 적립을 직렬화합니다.
@@ -191,11 +192,16 @@ public class KujiDrawService {
             usedPoints = totalRequiredAmount;
             member.deductPoint(totalRequiredAmount);
         } else if (request.getPaymentType() == PaymentType.PG) {
-            // 나이스 승인(최대 수 초)을 기다리는 동안 쿠지 판 락을 잡지 않도록,
+            // 포트원 결제 확인(최대 수 초)을 기다리는 동안 쿠지 판 락을 잡지 않도록,
             // 락 없는 사전 확인 → 승인 → 판 잠금 후 재검증 순서로 진행합니다.
             // 승인 뒤 재검증에 실패하면 예외로 롤백되고, PaymentRecoveryService 가 등록한
             // 롤백 훅(PaymentCompensationService)이 승인된 결제를 자동 취소합니다.
-            totalRequiredAmount = kujiDrawAvailability.precheck(boardId, count);
+            try {
+                totalRequiredAmount = kujiDrawAvailability.precheck(boardId, count);
+            } catch (IllegalStateException e) {
+                // 포트원 결제는 이미 끝났으므로 처리하지 못하면 결제 금액을 돌려준다는 것을 함께 알린다.
+                throw new IllegalStateException(e.getMessage() + " 결제된 금액은 자동으로 취소됩니다.", e);
+            }
             // PG 결제: 잠근 결제 세션이 현재 구매 요청과 일치하는지 확인합니다.
             if (!session.getMember().getId().equals(memberId)
                     || session.getSessionType() != SessionType.KUJI_DRAW
@@ -230,7 +236,7 @@ public class KujiDrawService {
                 throw new IllegalArgumentException("포인트가 부족합니다.");
             }
 
-            // 나이스페이먼츠 승인 요청 (실패 시 예외 발생 및 롤백)
+            // 포트원 결제 확인 (실패 시 예외 발생 및 롤백)
             try {
                 paymentRecoveryService.confirm(session, request.getPaymentKey(), request.getAmount());
             } catch (Exception e) {
@@ -248,7 +254,7 @@ public class KujiDrawService {
                     .pguid(request.getPaymentKey())
                     .merchantUid(request.getOrderId())
                     .amount(BigDecimal.valueOf(request.getAmount()))
-                    .paymentMethod("NICE")
+                    .paymentMethod("PORTONE")
                     .status(PaymentStatus.PAID)
                     .paidAt(OffsetDateTime.now())
                     .build();
@@ -269,7 +275,7 @@ public class KujiDrawService {
             } catch (RuntimeException e) {
                 businessLogger.warn("[PAYMENT_AUTO_CANCEL] type=KUJI_DRAW, memberId={}, orderId={}, reason=\"{}\"",
                         memberId, request.getOrderId(), e.getMessage());
-                throw new IllegalStateException(e.getMessage() + " 승인된 결제는 자동으로 취소됩니다.", e);
+                throw new IllegalStateException(e.getMessage() + " 결제된 금액은 자동으로 취소됩니다.", e);
             }
         } else {
             throw new IllegalArgumentException("지원하지 않는 결제 방식입니다.");

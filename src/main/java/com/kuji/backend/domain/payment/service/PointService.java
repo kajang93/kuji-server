@@ -95,13 +95,14 @@ public class PointService {
     }
 
     /**
-     * 포인트 충전 승인 (나이스 결제 승인 + 포인트 지급)
-     * - 나이스페이먼츠 승인 API를 호출하고, 성공 시 회원의 포인트를 증가시킵니다.
+     * 포인트 충전 승인 (포트원 결제 확인 + 포인트 지급)
+     * - 포트원에서 결제를 조회·검증하고, 성공 시 회원의 포인트를 증가시킵니다.
      */
     public ChargeConfirmResponse confirmCharge(Long memberId, ChargeConfirmRequest request) {
         // 승인 의도는 업무 트랜잭션이 잠금을 잡기 전에 독립적으로 커밋합니다.
         paymentRecoveryService.registerAttempt(memberId, request.getPaymentKey(), request.getOrderId(),
                 request.getAmount(), SessionType.POINT_CHARGE, null, null);
+        paymentRecoveryService.compensateOnRollback(request.getOrderId());
         // 포인트 변경은 회원, 결제 세션 순서로 잠가 중복 승인과 잔액 갱신 충돌을 막습니다.
         Member member = memberRepository.findByIdWithLock(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
@@ -138,7 +139,7 @@ public class PointService {
             throw new IllegalArgumentException("포인트 충전 세션이 아닙니다.");
         }
 
-        // 2. 나이스페이먼츠 승인 요청
+        // 2. 포트원 결제 확인
         try {
             paymentRecoveryService.confirm(session, request.getPaymentKey(), request.getAmount());
         } catch (Exception e) {
@@ -152,7 +153,7 @@ public class PointService {
                 .pguid(request.getPaymentKey())
                 .merchantUid(request.getOrderId())
                 .amount(BigDecimal.valueOf(request.getAmount()))
-                .paymentMethod("NICE")
+                .paymentMethod("PORTONE")
                 .status(PaymentStatus.PAID)
                 .paidAt(OffsetDateTime.now())
                 .build();
